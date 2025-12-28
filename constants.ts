@@ -1,29 +1,29 @@
 import { JobRole, PackageType } from './types';
 
-// IMPORTANT: Replace this with your actual Key ID from Razorpay Dashboard (Settings > API Keys)
+// REPLACE THIS with your actual Key ID from Razorpay Dashboard > Settings > API Keys
 export const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE';
 
 export const PRICING = {
   [PackageType.RESUME_ONLY]: { 
-    price: 99, 
-    label: 'Starter Pack',
-    features: ['1 Professional Resume', 'ATS-Friendly Layout', 'Instant PDF Download', 'Indian Market Optimized']
+    price: 199, 
+    label: 'Resume Only',
+    features: ['ATS-Friendly Resume', 'Professional Summary', 'PDF Format']
   },
   [PackageType.RESUME_COVER]: { 
-    price: 199, 
-    label: 'Pro Pack',
-    features: ['3 Generation Credits', 'Resume + Cover Letter', 'Clean Layouts', 'Priority PDF Export']
+    price: 299, 
+    label: 'Resume + Cover Letter',
+    features: ['Everything in Resume Only', 'Role-Specific Cover Letter', 'Formal Language Sync']
   },
   [PackageType.JOB_READY_PACK]: { 
-    price: 299, 
-    label: 'Job Ready Pack',
+    price: 499, 
+    label: 'Job Ready Pack (All-in-One)',
     features: [
-      'Unlimited Edits (24hrs)',
-      'Job-Specific Optimization',
-      'LinkedIn About Section',
-      'Recruiter Keyword Mapping',
+      'Everything in Resume + Cover',
+      'LinkedIn Optimization',
+      'Job-Specific Keyword Mapping',
+      'Recruiter-Style Bullet Rewriting',
       'ATS Score Explanation',
-      'No Watermark'
+      'Resume Review Upsell'
     ]
   },
 };
