@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ResumeForm from './components/ResumeForm';
@@ -142,15 +142,15 @@ const Builder = () => {
   const [paidIdentifiers, setPaidIdentifiers] = useState<string[]>(() => 
     JSON.parse(localStorage.getItem('jdp_paid_list') || '[]')
   );
-  const [usageMap, setUsageMap] = useState<Record<string, number>>(() => 
-    JSON.parse(localStorage.getItem('jdp_usage_map') || '{}')
+  const [creditsMap, setCreditsMap] = useState<Record<string, number>>(() => 
+    JSON.parse(localStorage.getItem('jdp_credits_map') || '{}')
   );
 
   const currentId = userData ? getIdentifier(userData.email, userData.phone) : '';
   const isPaid = paidIdentifiers.includes(currentId);
-  const usageCount = usageMap[currentId] || 0;
-  const remainingGenerations = Math.max(0, 3 - usageCount);
+  const remainingCredits = creditsMap[currentId] !== undefined ? creditsMap[currentId] : 0;
 
+  // Sync state to local storage
   useEffect(() => {
     if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
   }, [userData]);
@@ -160,75 +160,112 @@ const Builder = () => {
   }, [paidIdentifiers]);
 
   useEffect(() => {
-    localStorage.setItem('jdp_usage_map', JSON.stringify(usageMap));
-  }, [usageMap]);
+    localStorage.setItem('jdp_credits_map', JSON.stringify(creditsMap));
+  }, [creditsMap]);
 
   const handleRazorpayCheckout = () => {
     if (!userData || !selectedPackage) return;
     
-    if (!(window as any).Razorpay) {
-      alert("Payment gateway not ready. Please check your internet.");
+    const rzp = (window as any).Razorpay;
+    if (!rzp) {
+      alert("Payment gateway is taking longer than expected to load. Please refresh.");
       return;
     }
 
     if (RAZORPAY_KEY_ID === 'rzp_test_fallback_key') {
-      alert("Missing Razorpay Configuration. Please check your Vercel Environment Variables.");
+      console.error("Razorpay Key ID missing from environment variables.");
+      alert("Checkout system is under maintenance. Please try again later.");
       return;
     }
 
     const amount = PRICING[selectedPackage].price;
     const options = {
       key: RAZORPAY_KEY_ID,
-      amount: amount * 100, // paise
+      amount: amount * 100, // in paise
       currency: "INR",
       name: "JobDocPro",
-      description: `Unlock Full Bundle - ${PRICING[selectedPackage].label}`,
+      description: `Unlock Full Documents - ${PRICING[selectedPackage].label}`,
       image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=100&h=100&fit=crop",
       handler: function(response: any) {
         if (response.razorpay_payment_id) {
           handlePaymentSuccess();
         }
       },
-      prefill: { name: userData.fullName, email: userData.email, contact: userData.phone },
-      theme: { color: "#2563eb" }
+      prefill: {
+        name: userData.fullName,
+        email: userData.email,
+        contact: userData.phone
+      },
+      theme: {
+        color: "#2563eb"
+      },
+      modal: {
+        ondismiss: function() {
+          console.log("Checkout modal closed by user");
+        }
+      }
     };
 
     try {
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', (res: any) => alert(res.error.description));
-      rzp.open();
+      const instance = new rzp(options);
+      instance.open();
     } catch (err) {
-      alert("Checkout error. Please try again.");
+      console.error("Razorpay instance error:", err);
+      alert("Failed to open checkout. Please ensure you have a stable connection.");
     }
   };
 
   const handlePaymentSuccess = () => {
     if (userData) {
       const id = getIdentifier(userData.email, userData.phone);
-      setUsageMap(prev => ({ ...prev, [id]: 0 })); // Reset usage count on new payment
-      if (!paidIdentifiers.includes(id)) {
-        setPaidIdentifiers(prev => [...prev, id]);
-      }
+      
+      // Mark as paid and grant 3 fresh credits
+      setPaidIdentifiers(prev => {
+        if (prev.includes(id)) return prev;
+        return [...prev, id];
+      });
+
+      setCreditsMap(prev => ({
+        ...prev,
+        [id]: 3
+      }));
+
       setIsCheckout(false);
       window.scrollTo(0, 0);
     }
   };
 
   const onFormSubmit = async (data: UserData) => {
+    const id = getIdentifier(data.email, data.phone);
+    const userIsPaid = paidIdentifiers.includes(id);
+    const userCredits = creditsMap[id] !== undefined ? creditsMap[id] : 0;
+
+    // Check if paid user has credits left
+    if (userIsPaid && userCredits <= 0) {
+      alert("You have used all 3 generations. Please purchase another pack to continue editing.");
+      setIsCheckout(true);
+      return;
+    }
+
     setUserData(data);
     setIsGenerating(true);
     setResult(null);
+
     try {
       const generated = await generateJobDocuments(data);
       setResult(generated);
-      const id = getIdentifier(data.email, data.phone);
-      // Increment usage count ONLY if they are paid
-      if (paidIdentifiers.includes(id)) {
-        setUsageMap(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+      
+      // Deduct credit ONLY after a successful generation for a paid user
+      if (userIsPaid) {
+        setCreditsMap(prev => ({
+          ...prev,
+          [id]: Math.max(0, (prev[id] || 3) - 1)
+        }));
       }
+      
       window.scrollTo(0, 0);
     } catch (e: any) {
-      alert(e.message || "Something went wrong. Please try again.");
+      alert(e.message || "Generation failed. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -239,7 +276,7 @@ const Builder = () => {
       <Layout>
         <div className="max-w-7xl mx-auto py-16 px-4 text-center">
           <h1 className="text-4xl font-black mb-4">Select Your Plan</h1>
-          <p className="text-gray-500 mb-12 font-medium italic">One-time payment for 3 full generations.</p>
+          <p className="text-gray-500 mb-12 font-medium italic">All plans include 3 full generations to get your details perfect.</p>
           <div className="grid md:grid-cols-3 gap-8">
             {Object.entries(PRICING).map(([key, val]) => (
               <PackageCard key={key} pkgKey={key} data={val} onSelect={setSelectedPackage} />
@@ -256,7 +293,7 @@ const Builder = () => {
         <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
            <h2 className="text-3xl font-black mb-4 tracking-tight">Generating Your Job-Ready Docs...</h2>
-           <p className="text-gray-500 font-medium">Optimizing keywords for Indian hiring managers.</p>
+           <p className="text-gray-500 font-medium">This usually takes about 15-20 seconds.</p>
         </div>
       </Layout>
     );
@@ -272,9 +309,14 @@ const Builder = () => {
             </button>
             <div className="flex flex-col items-end">
               {isPaid ? (
-                <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100 flex items-center gap-2">
-                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                   Full Access
+                <div className="flex flex-col items-end">
+                   <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      Pro Access Active
+                   </div>
+                   <span className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">
+                     Credits Remaining: {remainingCredits} / 3
+                   </span>
                 </div>
               ) : (
                 <button 
@@ -284,7 +326,6 @@ const Builder = () => {
                   🚀 Unlock Full Documents
                 </button>
               )}
-              {isPaid && <span className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">Credits: {remainingGenerations} / 3</span>}
             </div>
           </div>
           <DocumentPreview 
@@ -298,21 +339,23 @@ const Builder = () => {
 
         {isCheckout && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center" onClick={e => e.stopPropagation()}>
-              <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Land That Job?</h2>
-              <p className="text-gray-500 mb-8 font-medium">Unlock full PDF export, recruiter keywords, and cover letter.</p>
+            <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center" onClick={e => e.stopPropagation()}>
+              <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Apply?</h2>
+              <p className="text-gray-500 mb-8 font-medium leading-relaxed">Unlock the full PDF, recruiter insights, and keyword optimization. <strong>Includes 3 free edits.</strong></p>
               <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                  <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
-                 <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time (3 Generations)</div>
+                 <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time Payment</div>
               </div>
-              <button 
-                onClick={handleRazorpayCheckout}
-                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
-              >
-                Pay & Unlock
-              </button>
-              <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600 block w-full">I'll do this later</button>
-              <p className="mt-8 text-[9px] text-gray-300 font-bold uppercase tracking-widest">Secure Payments via Razorpay • GST Included</p>
+              <div className="space-y-4">
+                <button 
+                  onClick={handleRazorpayCheckout}
+                  className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
+                >
+                  Pay & Download
+                </button>
+                <button onClick={() => setIsCheckout(false)} className="block w-full text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">Maybe Later</button>
+              </div>
+              <p className="mt-8 text-[9px] text-gray-300 font-bold uppercase tracking-widest">Secured by Razorpay • Instant Access</p>
             </div>
           </div>
         )}
@@ -330,8 +373,8 @@ const Builder = () => {
           <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
             Building: {PRICING[selectedPackage].label}
           </span>
-          <h1 className="text-4xl font-black tracking-tight">Your Career Journey</h1>
-          <p className="text-gray-500 mt-2 font-medium">Fill this out to get your customized recruiter-ready docs.</p>
+          <h1 className="text-4xl font-black tracking-tight">Career Details</h1>
+          <p className="text-gray-500 mt-2 font-medium">Tell us about your background to generate your documents.</p>
         </div>
         <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
       </div>
@@ -343,7 +386,7 @@ const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, One-Time Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Pay once, use 3 times. No subscriptions or recurring fees.</p>
+      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Pay once, use 3 times. No subscriptions or hidden fees.</p>
       
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
@@ -357,12 +400,12 @@ const Pricing = () => (
 const FAQ = () => (
   <Layout>
     <div className="max-w-3xl mx-auto py-24 px-4">
-      <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Frequently Asked Questions</h1>
+      <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Common Questions</h1>
       <div className="space-y-6">
         {[
-          { q: "Is it really ATS-friendly?", a: "Yes. Our templates use standard fonts and structures that Indian hiring systems (like TCS iON, Infosys portals, etc.) can read perfectly." },
-          { q: "Can I use it on mobile?", a: "Absolutely. Our builder is optimized for smartphones, and your resume will be generated as a perfect A4 PDF." },
-          { q: "What is the '3 Generation' quota?", a: "Every payment gives you 3 credits. This means if you change your mind about your skills or job title, you can regenerate it up to 3 times without paying again." }
+          { q: "Is this ATS friendly?", a: "Yes. Our formats are specifically designed for the software used by Indian firms like TCS, Infosys, and startups." },
+          { q: "What is the '3 Generations' quota?", a: "Every purchase gives you 3 generation attempts. This means if you want to change your skills or experience later, you can regenerate the whole pack for free up to 3 times." },
+          { q: "How do I download the PDF?", a: "Once you unlock, a 'Download All' button appears. It will open your browser's print dialog where you can 'Save as PDF'." }
         ].map((item, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-100 transition">
             <h3 className="text-xl font-black mb-2 leading-tight text-gray-900">{item.q}</h3>
