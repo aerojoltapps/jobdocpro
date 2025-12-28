@@ -14,7 +14,6 @@ const SAMPLE_DATA = [
   { role: "Administrative Assistant", img: "https://images.unsplash.com/photo-1549923746-c502d488b3ea?auto=format&fit=crop&q=80&w=800", tag: "Corporate Ready" }
 ];
 
-// Home Page Component
 const Home = () => {
   const [previewSample, setPreviewSample] = useState<typeof SAMPLE_DATA[0] | null>(null);
 
@@ -126,7 +125,6 @@ const Home = () => {
   );
 };
 
-// PayPal Button Wrapper Component
 const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +153,6 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
   return <div ref={containerRef} className="w-full min-h-[100px] flex items-center justify-center bg-gray-50 rounded-2xl">Loading Payment...</div>;
 };
 
-// Main Builder Experience
 const Builder = () => {
   const [searchParams] = useSearchParams();
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(searchParams.get('package') as PackageType | null);
@@ -180,8 +177,14 @@ const Builder = () => {
 
   const onFormSubmit = (data: UserData) => {
     setUserData(data);
-    setIsCheckout(true); // Navigate to payment screen
-    window.scrollTo(0, 0);
+    if (isPaid) {
+      // Force immediate re-render to show loading state
+      setIsGenerating(true);
+      setTimeout(() => runGeneration(), 100);
+    } else {
+      setIsCheckout(true);
+      window.scrollTo(0, 0);
+    }
   };
 
   const handlePaymentSuccess = async () => {
@@ -205,7 +208,6 @@ const Builder = () => {
     }
   };
 
-  // 1. Package Selection
   if (!selectedPackage) {
     return (
       <Layout>
@@ -213,10 +215,15 @@ const Builder = () => {
           <h1 className="text-4xl font-black text-center mb-12">Select Your Package</h1>
           <div className="grid md:grid-cols-3 gap-8">
             {Object.entries(PRICING).map(([key, val]) => (
-              <div key={key} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center">
+              <div key={key} className={`bg-white p-8 rounded-3xl shadow-sm border flex flex-col items-center hover:border-blue-300 transition-all ${key === PackageType.JOB_READY_PACK ? 'ring-2 ring-blue-600' : 'border-gray-100'}`}>
                 <h3 className="text-xl font-bold mb-4">{val.label}</h3>
                 <div className="text-4xl font-black mb-8">₹{val.price}</div>
-                <button onClick={() => setSelectedPackage(key as PackageType)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">Select</button>
+                <button 
+                  onClick={() => setSelectedPackage(key as PackageType)} 
+                  className={`w-full py-4 rounded-xl font-bold transition ${key === PackageType.JOB_READY_PACK ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
+                >
+                  Select Package
+                </button>
               </div>
             ))}
           </div>
@@ -225,7 +232,6 @@ const Builder = () => {
     );
   }
 
-  // 2. Loading State
   if (isGenerating) {
     return (
       <Layout>
@@ -238,14 +244,13 @@ const Builder = () => {
     );
   }
 
-  // 3. Results (Paid & Generated)
   if (result && userData && isPaid) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => { setResult(null); }} className="text-blue-600 font-bold">← Back to Details</button>
-            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black">✨ PAID & SECURE</div>
+            <button onClick={() => { setResult(null); }} className="text-blue-600 font-bold hover:underline">← Back to Details</button>
+            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Order Active</div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
         </div>
@@ -253,7 +258,6 @@ const Builder = () => {
     );
   }
 
-  // 4. Checkout Screen
   if (isCheckout && userData && !isPaid) {
     return (
       <Layout>
@@ -261,28 +265,27 @@ const Builder = () => {
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 animate-fadeIn">
             <h2 className="text-4xl font-black mb-4">Complete Payment</h2>
             <p className="text-gray-500 mb-8">Unlock your {selectedPackage.replace('_', ' ')} documents.</p>
-            <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white">
+            <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                <div className="text-7xl font-black tracking-tighter">₹{getPrice()}</div>
             </div>
             <div className="max-w-sm mx-auto space-y-6">
               <PayPalBtn amount={getPrice()} onConfirm={handlePaymentSuccess} />
-              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline">Test Bypass</button>
+              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-50 hover:opacity-100">Bypass for testing</button>
               {useTestBypass && <button onClick={handlePaymentSuccess} className="w-full bg-green-50 text-green-700 py-4 rounded-xl font-black border border-green-200">🚀 Success Bypass</button>}
             </div>
-            <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px]">← Back to Form</button>
+            <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">← Back to Form</button>
           </div>
         </div>
       </Layout>
     );
   }
 
-  // 5. User Form
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-16 px-4">
-        <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8">← Change Package</button>
-        <h1 className="text-4xl font-black text-center mb-16">Enter Your Details</h1>
-        <ResumeForm onSubmit={onFormSubmit} isLoading={false} initialData={userData} />
+        <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8 hover:underline">← Change Package</button>
+        <h1 className="text-4xl font-black text-center mb-16 tracking-tight">Enter Your Details</h1>
+        <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
       </div>
     </Layout>
   );
@@ -291,13 +294,28 @@ const Builder = () => {
 const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
-      <h1 className="text-5xl font-black mb-16">Choose Your Package</h1>
+      <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Transparent Pricing</h1>
+      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Choose the package that fits your job search needs.</p>
+      
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
-          <div key={key} className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col">
+          <div key={key} className={`bg-white p-10 rounded-[2.5rem] shadow-sm border flex flex-col hover:shadow-xl transition-all duration-300 ${key === PackageType.JOB_READY_PACK ? 'ring-4 ring-blue-600 relative border-transparent' : 'border-gray-100'}`}>
+            {key === PackageType.JOB_READY_PACK && (
+              <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">Most Popular</span>
+            )}
             <h3 className="text-xl font-bold mb-4">{val.label}</h3>
             <div className="text-5xl font-black mb-8">₹{val.price}</div>
-            <Link to={`/builder?package=${key}`} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">Get Started</Link>
+            <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
+              {key === PackageType.RESUME_ONLY && <><li>✓ ATS-Friendly Resume</li><li>✓ Professional Summary</li><li>✓ Instant PDF Access</li></>}
+              {key === PackageType.RESUME_COVER && <><li>✓ Everything in Resume Only</li><li>✓ Professional Cover Letter</li><li>✓ AI-Guided Content</li></>}
+              {key === PackageType.JOB_READY_PACK && <><li>✓ Everything in Resume + Cover</li><li>✓ LinkedIn Optimization</li><li>✓ Priority Processing</li></>}
+            </ul>
+            <Link 
+              to={`/builder?package=${key}`} 
+              className={`w-full py-4 rounded-xl font-bold text-center transition shadow-md active:scale-95 ${key === PackageType.JOB_READY_PACK ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
+            >
+              Get Started
+            </Link>
           </div>
         ))}
       </div>
@@ -311,12 +329,13 @@ const FAQ = () => (
       <h1 className="text-5xl font-black text-center mb-16">FAQ</h1>
       <div className="space-y-6">
         {[
-          { q: "Is it ATS-friendly?", a: "Yes, we use recruiter-tested layouts." },
-          { q: "How to save as PDF?", a: "Click Print and select 'Save as PDF'." }
+          { q: "Is it ATS-friendly?", a: "Yes, we use recruiter-tested layouts that parse perfectly in all major ATS systems used in India." },
+          { q: "How to save as PDF?", a: "After checkout, click the Download button. In the print dialog, select 'Save as PDF' as your destination." },
+          { q: "What if I want to edit later?", a: "Your details are saved in your browser locally. You can come back and edit your details anytime on the same device." }
         ].map((item, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-xl font-black mb-2">{item.q}</h3>
-            <p className="text-gray-600 font-medium">{item.a}</p>
+            <h3 className="text-xl font-black mb-2 leading-tight">{item.q}</h3>
+            <p className="text-gray-600 font-medium leading-relaxed">{item.a}</p>
           </div>
         ))}
       </div>
