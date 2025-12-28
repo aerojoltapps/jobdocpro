@@ -21,7 +21,6 @@ const Home = () => {
   return (
     <Layout>
       <div className="overflow-hidden">
-        {/* Hero Section */}
         <section className="relative bg-white pt-20 pb-32">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="lg:grid lg:grid-cols-12 lg:gap-8">
@@ -70,7 +69,6 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Gallery Preview */}
         <section className="bg-gray-50 py-24">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-16 gap-4 text-center md:text-left">
@@ -105,16 +103,10 @@ const Home = () => {
           </div>
         </section>
         
-        {/* Modal logic for Home page previews */}
         {previewSample && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4 animate-fadeIn" onClick={() => setPreviewSample(null)}>
             <div className="relative max-w-4xl w-full bg-white rounded-[2rem] overflow-hidden animate-scaleIn shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button 
-                onClick={() => setPreviewSample(null)}
-                className="absolute top-6 right-6 bg-black/50 hover:bg-black text-white w-12 h-12 rounded-full flex items-center justify-center z-10 transition shadow-xl"
-              >
-                ✕
-              </button>
+              <button onClick={() => setPreviewSample(null)} className="absolute top-6 right-6 bg-black/50 hover:bg-black text-white w-12 h-12 rounded-full flex items-center justify-center z-10 transition shadow-xl">✕</button>
               <div className="flex flex-col md:flex-row max-h-[90vh]">
                 <div className="md:w-1/2 overflow-y-auto bg-gray-100">
                   <img src={previewSample.img} className="w-full h-auto" alt="Full Preview" />
@@ -122,16 +114,8 @@ const Home = () => {
                 <div className="md:w-1/2 p-12 flex flex-col justify-center bg-white">
                   <span className="text-blue-600 font-black uppercase tracking-[3px] text-xs mb-4">{previewSample.tag}</span>
                   <h2 className="text-4xl font-black mb-6 tracking-tight text-gray-900">{previewSample.role}</h2>
-                  <p className="text-gray-500 mb-10 leading-relaxed text-lg">
-                    This recruiter-approved template is designed for impact. It focuses on your unique strengths and achievements, ensuring you stand out in the Indian job market.
-                  </p>
-                  <Link 
-                    to="/builder" 
-                    className="bg-blue-600 text-white text-center py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition shadow-xl shadow-blue-100 active:scale-95"
-                  >
-                    Create My Resume Now
-                  </Link>
-                  <p className="mt-6 text-center text-gray-400 text-sm font-medium">Ready in less than 15 minutes</p>
+                  <p className="text-gray-500 mb-10 leading-relaxed text-lg">Recruiter-approved template designed for impact in the Indian job market.</p>
+                  <Link to="/builder" className="bg-blue-600 text-white text-center py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition shadow-xl shadow-blue-100 active:scale-95">Create My Resume Now</Link>
                 </div>
               </div>
             </div>
@@ -146,20 +130,9 @@ const Home = () => {
 const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
-    const errorHandler = (event: ErrorEvent | PromiseRejectionEvent) => {
-      const message = (event instanceof ErrorEvent) ? event.message : (event as any).reason?.message;
-      if (message && (message.includes('host') || message.includes('PayPal'))) {
-        if (event instanceof ErrorEvent) event.preventDefault();
-        return true;
-      }
-    };
-    window.addEventListener('error', errorHandler);
-    window.addEventListener('unhandledrejection', errorHandler);
-
     const initPayPal = async () => {
       const paypal = (window as any).paypal;
       if (paypal && containerRef.current && isMounted) {
@@ -167,152 +140,112 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
         try {
           await paypal.Buttons({
             style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
-            createOrder: (data: any, actions: any) => {
-              return actions.order.create({
-                purchase_units: [{ amount: { value: (amount / 80).toFixed(2), currency_code: 'USD' } }]
-              });
-            },
-            onApprove: (data: any, actions: any) => {
-              return actions.order.capture().then(() => { if (isMounted) onConfirm(); });
-            },
-            onError: (err: any) => { if (isMounted) setError("Checkout restricted in this environment."); }
+            createOrder: (data: any, actions: any) => actions.order.create({ purchase_units: [{ amount: { value: (amount / 80).toFixed(2), currency_code: 'USD' } }] }),
+            onApprove: (data: any, actions: any) => actions.order.capture().then(() => { if (isMounted) onConfirm(); }),
+            onError: () => { if (isMounted) setError("Payment gateway error."); }
           }).render(containerRef.current);
-        } catch (e: any) { if (isMounted) setError("Environment restriction detected."); }
+        } catch (e) { if (isMounted) setError("Restriction detected."); }
       }
     };
-    const timer = setTimeout(initPayPal, 1000);
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-      window.removeEventListener('error', errorHandler);
-      window.removeEventListener('unhandledrejection', errorHandler);
-    };
-  }, [amount, retryKey]);
+    setTimeout(initPayPal, 1000);
+    return () => { isMounted = false; };
+  }, [amount]);
 
-  if (error) {
-    return (
-      <div className="p-5 bg-red-50 border border-red-200 rounded-2xl">
-        <p className="text-red-700 text-[11px] font-bold mb-4">{error}</p>
-        <button onClick={() => { setError(null); setRetryKey(k => k + 1); }} className="text-xs font-black uppercase text-red-600 underline">Retry Load</button>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={containerRef} className="w-full min-h-[150px] flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-gray-100">
-      <div className="w-8 h-8 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-      <span className="text-[10px] font-black uppercase text-gray-400">Secure Gateway...</span>
-    </div>
-  );
+  if (error) return <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-xl">{error}</div>;
+  return <div ref={containerRef} className="w-full min-h-[100px] flex items-center justify-center bg-gray-50 rounded-2xl">Loading Payment...</div>;
 };
 
-// Builder Page Component
+// Main Builder Experience
 const Builder = () => {
   const [searchParams] = useSearchParams();
-  const initialPackage = searchParams.get('package') as PackageType | null;
-
-  const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(initialPackage);
+  const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(searchParams.get('package') as PackageType | null);
   const [userData, setUserData] = useState<UserData | null>(() => {
     const saved = localStorage.getItem('jdp_draft');
     return saved ? JSON.parse(saved) : null;
   });
   const [result, setResult] = useState<DocumentResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [isPaid, setIsPaid] = useState(sessionStorage.getItem('nr_paid') === 'true');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPaid, setIsPaid] = useState(sessionStorage.getItem('jdp_paid') === 'true');
+  const [isCheckout, setIsCheckout] = useState(false);
   const [useTestBypass, setUseTestBypass] = useState(false);
 
-  // Sync draft to local storage
   useEffect(() => {
-    if (userData) {
-      localStorage.setItem('jdp_draft', JSON.stringify(userData));
-    }
+    if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
   }, [userData]);
 
   const getPrice = () => {
     if (!selectedPackage) return 0;
-    if (selectedPackage === PackageType.RESUME_ONLY) return PRICING.RESUME_ONLY.price;
-    if (selectedPackage === PackageType.RESUME_COVER) return PRICING.RESUME_COVER.price;
-    return PRICING.JOB_READY_PACK.price;
+    return PRICING[selectedPackage].price;
   };
 
-  const handleSubmit = async (data: UserData) => {
-    setUserData(data); 
-    setLoading(true);
+  const onFormSubmit = (data: UserData) => {
+    setUserData(data);
+    setIsCheckout(true); // Navigate to payment screen
+    window.scrollTo(0, 0);
+  };
+
+  const handlePaymentSuccess = async () => {
+    setIsPaid(true);
+    setIsCheckout(false);
+    sessionStorage.setItem('jdp_paid', 'true');
+    await runGeneration();
+  };
+
+  const runGeneration = async () => {
+    if (!userData) return;
+    setIsGenerating(true);
     try {
-      const generated = await generateJobDocuments(data);
+      const generated = await generateJobDocuments(userData);
       setResult(generated);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error: any) {
-      alert(error.message || "Something went wrong while generating documents.");
+      window.scrollTo(0, 0);
+    } catch (e: any) {
+      alert(e.message || "Generation error.");
     } finally {
-      setLoading(false);
+      setIsGenerating(false);
     }
   };
 
-  const handlePaymentSuccess = () => {
-    setIsPaid(true);
-    sessionStorage.setItem('nr_paid', 'true');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // 1. Package Selection Step
+  // 1. Package Selection
   if (!selectedPackage) {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto py-16 px-4">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tight">Select Your Document Package</h1>
-            <p className="text-gray-500 text-lg">Choose what you need to land your next job.</p>
-          </div>
+          <h1 className="text-4xl font-black text-center mb-12">Select Your Package</h1>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col hover:border-blue-200 transition">
-              <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_ONLY.label}</h3>
-              <div className="text-4xl font-black mb-6">₹{PRICING.RESUME_ONLY.price}</div>
-              <ul className="text-left space-y-3 mb-8 flex-grow text-sm text-gray-600 font-medium">
-                <li>✓ Professional Resume</li>
-                <li>✓ ATS Optimization</li>
-                <li>✓ PDF Format</li>
-              </ul>
-              <button onClick={() => setSelectedPackage(PackageType.RESUME_ONLY)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">Select Package</button>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2rem] shadow-xl border-2 border-blue-600 flex flex-col relative">
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Recommended</span>
-              <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_COVER.label}</h3>
-              <div className="text-4xl font-black mb-6">₹{PRICING.RESUME_COVER.price}</div>
-              <ul className="text-left space-y-3 mb-8 flex-grow text-sm text-gray-600 font-medium">
-                <li>✓ Professional Resume</li>
-                <li>✓ Professional Cover Letter</li>
-                <li>✓ ATS Optimization</li>
-              </ul>
-              <button onClick={() => setSelectedPackage(PackageType.RESUME_COVER)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">Select Package</button>
-            </div>
-
-            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col hover:border-blue-200 transition">
-              <h3 className="text-xl font-bold mb-4">{PRICING.JOB_READY_PACK.label}</h3>
-              <div className="text-4xl font-black mb-6">₹{PRICING.JOB_READY_PACK.price}</div>
-              <ul className="text-left space-y-3 mb-8 flex-grow text-sm text-gray-600 font-medium">
-                <li>✓ Professional Resume</li>
-                <li>✓ Professional Cover Letter</li>
-                <li>✓ LinkedIn Optimization</li>
-                <li>✓ Priority Support</li>
-              </ul>
-              <button onClick={() => setSelectedPackage(PackageType.JOB_READY_PACK)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">Select Package</button>
-            </div>
+            {Object.entries(PRICING).map(([key, val]) => (
+              <div key={key} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center">
+                <h3 className="text-xl font-bold mb-4">{val.label}</h3>
+                <div className="text-4xl font-black mb-8">₹{val.price}</div>
+                <button onClick={() => setSelectedPackage(key as PackageType)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">Select</button>
+              </div>
+            ))}
           </div>
         </div>
       </Layout>
     );
   }
 
-  // 4. Final Preview Step
+  // 2. Loading State
+  if (isGenerating) {
+    return (
+      <Layout>
+        <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
+           <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
+           <h2 className="text-3xl font-black mb-4 tracking-tight">Crafting Your Career Documents...</h2>
+           <p className="text-gray-500 font-medium">Our AI is analyzing your profile for the Indian market.</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  // 3. Results (Paid & Generated)
   if (result && userData && isPaid) {
     return (
       <Layout>
-        <div className="max-w-4xl mx-auto pt-10 px-4">
+        <div className="max-w-4xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Edit Details</button>
-            <div className="bg-green-50 text-green-700 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider border border-green-100">✨ Order Confirmed</div>
+            <button onClick={() => { setResult(null); }} className="text-blue-600 font-bold">← Back to Details</button>
+            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black">✨ PAID & SECURE</div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
         </div>
@@ -320,130 +253,51 @@ const Builder = () => {
     );
   }
 
-  // 3. Checkout Screen Step (Now with PayPal Buttons integrated)
-  if (result && userData && !isPaid) {
+  // 4. Checkout Screen
+  if (isCheckout && userData && !isPaid) {
     return (
       <Layout>
         <div className="max-w-2xl mx-auto py-20 px-4 text-center">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 animate-fadeIn">
-            <div className="w-20 h-20 bg-green-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8"><span className="text-4xl">✅</span></div>
-            <h2 className="text-4xl font-black mb-6 tracking-tight">Documents are Ready!</h2>
-            <p className="text-gray-500 mb-8 font-medium">Complete payment to unlock your {selectedPackage.replace('_', ' ')} documents.</p>
-            
-            <div className="bg-blue-600 p-10 rounded-3xl mb-12 shadow-xl text-white transform hover:scale-105 transition duration-500">
-               <p className="text-xs font-black uppercase tracking-[4px] mb-2 opacity-70">Pay Once, Access Forever</p>
+            <h2 className="text-4xl font-black mb-4">Complete Payment</h2>
+            <p className="text-gray-500 mb-8">Unlock your {selectedPackage.replace('_', ' ')} documents.</p>
+            <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white">
                <div className="text-7xl font-black tracking-tighter">₹{getPrice()}</div>
             </div>
-
-            {/* Integrated Payment Area */}
             <div className="max-w-sm mx-auto space-y-6">
               <PayPalBtn amount={getPrice()} onConfirm={handlePaymentSuccess} />
-              
-              <div className="pt-6 border-t border-dashed border-gray-200">
-                <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase tracking-widest font-bold">
-                  {useTestBypass ? 'Hide' : 'Show Success Bypass'}
-                </button>
-                {useTestBypass && (
-                  <button onClick={handlePaymentSuccess} className="w-full mt-4 bg-green-50 text-green-700 py-4 rounded-xl border border-green-200 text-[11px] font-black uppercase tracking-[2px]">🚀 Success Bypass</button>
-                )}
-              </div>
+              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline">Test Bypass</button>
+              {useTestBypass && <button onClick={handlePaymentSuccess} className="w-full bg-green-50 text-green-700 py-4 rounded-xl font-black border border-green-200">🚀 Success Bypass</button>}
             </div>
-
-            <button onClick={() => setResult(null)} className="mt-12 text-gray-400 font-bold uppercase tracking-widest text-[10px] hover:text-blue-600 transition">← Back to Edit My Details</button>
+            <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px]">← Back to Form</button>
           </div>
         </div>
       </Layout>
     );
   }
 
-  // 2. Form Step
+  // 5. User Form
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-16 px-4">
-        <div className="flex justify-between items-center mb-8">
-            <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold hover:underline flex items-center gap-1">
-              <span className="text-xl">←</span> Change Package
-            </button>
-            <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
-              <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Selected: {selectedPackage.replace('_', ' ')}</span>
-            </div>
-        </div>
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-4">Complete Your Details</h1>
-          <p className="text-gray-500 text-lg font-medium">Land your dream role as a {userData?.jobRole || 'Professional'}</p>
-        </div>
-        <ResumeForm 
-          key={result ? 'hidden' : 'visible'} 
-          onSubmit={handleSubmit} 
-          isLoading={loading} 
-          initialData={userData} 
-        />
+        <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8">← Change Package</button>
+        <h1 className="text-4xl font-black text-center mb-16">Enter Your Details</h1>
+        <ResumeForm onSubmit={onFormSubmit} isLoading={false} initialData={userData} />
       </div>
     </Layout>
   );
 };
 
-// Pricing Page Component
 const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
-      <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Transparent Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Choose the package that fits your job search needs.</p>
-      
+      <h1 className="text-5xl font-black mb-16">Choose Your Package</h1>
       <div className="grid md:grid-cols-3 gap-8">
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col">
-          <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_ONLY.label}</h3>
-          <div className="text-5xl font-black mb-8">₹{PRICING.RESUME_ONLY.price}</div>
-          <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
-            <li>✓ ATS-Friendly Resume</li>
-            <li>✓ Professional Summary</li>
-            <li>✓ PDF Download</li>
-          </ul>
-          <Link to={`/builder?package=${PackageType.RESUME_ONLY}`} className="w-full bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-center">Get Started</Link>
-        </div>
-
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col">
-          <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_COVER.label}</h3>
-          <div className="text-5xl font-black mb-8">₹{PRICING.RESUME_COVER.price}</div>
-          <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
-            <li>✓ Everything in Resume Only</li>
-            <li>✓ Professional Cover Letter</li>
-            <li>✓ Multi-role Customization</li>
-          </ul>
-          <Link to={`/builder?package=${PackageType.RESUME_COVER}`} className="w-full bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-center">Get Started</Link>
-        </div>
-
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col ring-4 ring-blue-600 relative">
-          <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">Most Popular</span>
-          <h3 className="text-xl font-bold mb-4">{PRICING.JOB_READY_PACK.label}</h3>
-          <div className="text-5xl font-black mb-8">₹{PRICING.JOB_READY_PACK.price}</div>
-          <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
-            <li>✓ Everything in Resume + Cover</li>
-            <li>✓ LinkedIn Optimization</li>
-            <li>✓ Priority Support</li>
-          </ul>
-          <Link to={`/builder?package=${PackageType.JOB_READY_PACK}`} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition text-center">Get Started</Link>
-        </div>
-      </div>
-    </div>
-  </Layout>
-);
-
-// FAQ Page component
-const FAQ = () => (
-  <Layout>
-    <div className="max-w-3xl mx-auto py-24 px-4">
-      <h1 className="text-5xl font-black text-center mb-16 tracking-tight text-gray-900">Questions?</h1>
-      <div className="space-y-8">
-        {[
-          { q: "Is this resume ATS-friendly?", a: "Absolutely. We avoid complex graphics or tables that break Applicant Tracking Systems. Our format is tested against common Indian hiring tools." },
-          { q: "How do I save it as a PDF?", a: "Once your payment is successful, simply click the 'Print / Save as PDF' button. In the window that opens, choose 'Save as PDF' from the printer dropdown list." },
-          { q: "What if I don't like it?", a: "We offer a 'No Questions Asked' refund if you find any technical issues with your document format within 24 hours." },
-          { q: "Is my personal data stored?", a: "No. Your privacy is our priority. We process your data in real-time and it is cleared the moment you close the tab." }
-        ].map((item, i) => (
-          <div key={i} className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 hover:border-blue-200 transition-colors duration-300">
-            <h3 className="text-xl font-black mb-4 text-gray-900 leading-tight">{item.q}</h3>
-            <p className="text-gray-600 leading-relaxed font-medium">{item.a}</p>
+        {Object.entries(PRICING).map(([key, val]) => (
+          <div key={key} className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col">
+            <h3 className="text-xl font-bold mb-4">{val.label}</h3>
+            <div className="text-5xl font-black mb-8">₹{val.price}</div>
+            <Link to={`/builder?package=${key}`} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold">Get Started</Link>
           </div>
         ))}
       </div>
@@ -451,18 +305,35 @@ const FAQ = () => (
   </Layout>
 );
 
-const App: React.FC = () => {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/builder" element={<Builder />} />
-        <Route path="/samples" element={<Gallery />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/faq" element={<FAQ />} />
-      </Routes>
-    </Router>
-  );
-};
+const FAQ = () => (
+  <Layout>
+    <div className="max-w-3xl mx-auto py-24 px-4">
+      <h1 className="text-5xl font-black text-center mb-16">FAQ</h1>
+      <div className="space-y-6">
+        {[
+          { q: "Is it ATS-friendly?", a: "Yes, we use recruiter-tested layouts." },
+          { q: "How to save as PDF?", a: "Click Print and select 'Save as PDF'." }
+        ].map((item, i) => (
+          <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="text-xl font-black mb-2">{item.q}</h3>
+            <p className="text-gray-600 font-medium">{item.a}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </Layout>
+);
+
+const App: React.FC = () => (
+  <Router>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/builder" element={<Builder />} />
+      <Route path="/samples" element={<Gallery />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/faq" element={<FAQ />} />
+    </Routes>
+  </Router>
+);
 
 export default App;

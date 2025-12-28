@@ -8,154 +8,121 @@ interface Props {
 }
 
 const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
-  // Set document title so PDF filename defaults to user's name
+  // Sync document title to user name for dynamic PDF filename
   useEffect(() => {
     const originalTitle = document.title;
-    document.title = `${user.fullName} - Job Application Documents`;
+    document.title = `${user.fullName} - Career Documents`;
     return () => {
       document.title = originalTitle;
     };
   }, [user.fullName]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const hasCoverLetter = packageType === PackageType.RESUME_COVER || packageType === PackageType.JOB_READY_PACK;
   const hasLinkedIn = packageType === PackageType.JOB_READY_PACK;
 
   return (
-    <div className="space-y-12 pb-20">
-      <div className="flex justify-center no-print mb-4">
-        <p className="text-gray-400 text-sm italic">Tip: Use "Save as PDF" in print settings. The filename will be "{user.fullName}.pdf"</p>
+    <div className="space-y-12">
+      <div className="flex justify-center no-print">
+        <p className="text-gray-400 text-sm font-medium italic">Filename will save as: {user.fullName}.pdf</p>
       </div>
 
-      {/* Resume Section */}
-      <section id="resume-preview" className="bg-white p-12 shadow-2xl border border-gray-100 max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 overflow-hidden relative print:shadow-none print:border-none">
+      {/* Page 1: Resume */}
+      <section className="bg-white p-12 shadow-2xl border border-gray-100 max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 relative print:shadow-none print:border-none">
         <div className="text-center mb-8 border-b-2 border-gray-900 pb-6">
           <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">{user.fullName}</h1>
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm font-medium text-gray-600">
-            <span>{user.email}</span>
-            <span className="opacity-30">|</span>
-            <span>{user.phone}</span>
-            <span className="opacity-30">|</span>
-            <span>{user.location}</span>
+          <div className="flex justify-center gap-4 text-[13px] font-bold text-gray-600">
+            <span>{user.email}</span> | <span>{user.phone}</span> | <span>{user.location}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-12 gap-8">
-          <div className="col-span-12 space-y-6">
-            <div>
-              <h2 className="text-lg font-bold border-b border-gray-300 mb-3 uppercase tracking-widest text-blue-900">Professional Summary</h2>
-              <p className="text-gray-700 leading-relaxed text-[13px]">{result.resumeSummary}</p>
-            </div>
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-lg font-black border-b border-gray-200 mb-3 uppercase tracking-widest text-blue-900">Professional Summary</h2>
+            <p className="text-gray-700 leading-relaxed text-[13px]">{result.resumeSummary}</p>
+          </div>
 
-            <div>
-              <h2 className="text-lg font-bold border-b border-gray-300 mb-4 uppercase tracking-widest text-blue-900">Work Experience</h2>
-              {user.experience.map((exp, idx) => (
-                <div key={idx} className="mb-6">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <h3 className="font-bold text-gray-800 text-[15px]">{exp.title}</h3>
-                    <span className="text-[11px] text-gray-500 font-bold uppercase tracking-wider">{exp.duration}</span>
-                  </div>
-                  <p className="font-semibold text-sm text-blue-700 mb-2">{exp.company}</p>
-                  <ul className="list-disc ml-4 text-[13px] text-gray-700 space-y-1.5 leading-snug">
-                    {(result.experienceBullets[idx] || []).map((bullet, bIdx) => (
-                      <li key={bIdx} className="pl-1">{bullet}</li>
-                    ))}
-                  </ul>
+          <div>
+            <h2 className="text-lg font-black border-b border-gray-200 mb-4 uppercase tracking-widest text-blue-900">Experience</h2>
+            {user.experience.map((exp, idx) => (
+              <div key={idx} className="mb-6">
+                <div className="flex justify-between font-black text-sm mb-1">
+                  <span>{exp.title}</span>
+                  <span className="text-gray-400 uppercase text-[10px]">{exp.duration}</span>
+                </div>
+                <p className="text-blue-700 font-bold text-[13px] mb-2">{exp.company}</p>
+                <ul className="list-disc ml-4 text-[13px] text-gray-700 space-y-1">
+                  {(result.experienceBullets[idx] || []).map((b, i) => <li key={i}>{b}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <h2 className="text-lg font-black border-b border-gray-200 mb-3 uppercase tracking-widest text-blue-900">Education</h2>
+            <div className="grid grid-cols-2 gap-4">
+              {user.education.map((edu, idx) => (
+                <div key={idx} className="border border-gray-100 p-3 rounded">
+                  <p className="font-bold text-sm">{edu.degree}</p>
+                  <p className="text-[11px] text-gray-500">{edu.college} | {edu.year}</p>
                 </div>
               ))}
             </div>
+          </div>
 
-            <div>
-              <h2 className="text-lg font-bold border-b border-gray-300 mb-3 uppercase tracking-widest text-blue-900">Education</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                {user.education.map((edu, idx) => (
-                  <div key={idx} className="bg-gray-50 p-3 rounded border border-gray-100 print:bg-white print:border-gray-200">
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h3 className="font-bold text-gray-800 text-sm">{edu.degree}</h3>
-                      <span className="text-[11px] font-bold text-gray-500">{edu.year}</span>
-                    </div>
-                    <p className="text-xs text-gray-600">{edu.college}</p>
-                    <p className="text-xs font-bold text-blue-600 mt-1">Score: {edu.percentage}%</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-lg font-bold border-b border-gray-300 mb-3 uppercase tracking-widest text-blue-900">Key Skills</h2>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {user.skills.map((skill, idx) => (
-                  <span key={idx} className="bg-white px-3 py-1 rounded text-[11px] font-bold text-gray-700 border border-gray-900/10 shadow-sm">
-                    {skill}
-                  </span>
-                ))}
-              </div>
+          <div>
+            <h2 className="text-lg font-black border-b border-gray-200 mb-3 uppercase tracking-widest text-blue-900">Skills</h2>
+            <div className="flex flex-wrap gap-2">
+              {user.skills.map((s, i) => <span key={i} className="px-3 py-1 bg-gray-50 border border-gray-200 rounded text-[11px] font-bold">{s}</span>)}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Cover Letter Section - Visible in print if part of package */}
+      {/* Page 2: Cover Letter (Printable) */}
       {hasCoverLetter && (
         <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
-          <div className="flex items-center gap-3 mb-8 no-print">
-            <span className="bg-blue-100 text-blue-600 p-2 rounded-lg text-xl">📧</span>
-            <h2 className="text-2xl font-bold text-gray-800">Professional Cover Letter</h2>
+          <div className="no-print flex items-center gap-3 mb-8">
+            <span className="bg-blue-100 p-2 rounded text-xl">📧</span>
+            <h2 className="text-2xl font-black">Cover Letter</h2>
           </div>
-          <div className="text-gray-900 text-sm leading-relaxed font-serif space-y-6">
-            <div className="mb-10">
-              <p className="font-bold">{user.fullName}</p>
-              <p>{user.location}</p>
-              <p>{user.email}</p>
-              <p>{user.phone}</p>
+          <div className="text-sm leading-relaxed space-y-6">
+            <div className="mb-10 font-bold">
+              <p>{user.fullName}</p>
+              <p>{user.location} | {user.email}</p>
             </div>
-            <p>To,</p>
-            <p>The Hiring Manager,</p>
-            <div className="whitespace-pre-wrap">
-              {result.coverLetter}
-            </div>
+            <p>Dear Hiring Manager,</p>
+            <div className="whitespace-pre-wrap">{result.coverLetter}</div>
             <div className="mt-12">
-              <p>Sincerely,</p>
-              <p className="font-bold mt-2">{user.fullName}</p>
+              <p>Best Regards,</p>
+              <p className="font-black mt-2">{user.fullName}</p>
             </div>
           </div>
         </section>
       )}
 
-      {/* LinkedIn Section - Visible in print if part of package */}
+      {/* Page 3: LinkedIn (Printable) */}
       {hasLinkedIn && (
         <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
-          <div className="flex items-center gap-3 mb-8 no-print">
-            <span className="bg-blue-600 text-white p-2 rounded-lg text-xl">in</span>
-            <h2 className="text-2xl font-bold text-gray-800">LinkedIn Profile Optimization</h2>
+          <div className="no-print flex items-center gap-3 mb-8">
+            <span className="bg-blue-600 text-white p-2 rounded text-xl font-bold">in</span>
+            <h2 className="text-2xl font-black">LinkedIn Profile</h2>
           </div>
-          <div className="space-y-10">
+          <div className="space-y-8">
             <div>
-              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">Optimized Headline</label>
-              <div className="p-6 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-800 text-lg print:bg-white print:border-gray-200">
-                {result.linkedinHeadline}
-              </div>
+              <p className="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Optimized Headline</p>
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-800 print:bg-white">{result.linkedinHeadline}</div>
             </div>
             <div>
-              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">About Section (Keywords optimized)</label>
-              <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm whitespace-pre-wrap leading-relaxed print:bg-white print:border-gray-200">
-                {result.linkedinSummary}
-              </div>
+              <p className="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">About Summary</p>
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm whitespace-pre-wrap print:bg-white">{result.linkedinSummary}</div>
             </div>
           </div>
         </section>
       )}
 
-      {/* Action Bar */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 no-print flex gap-4">
-        <button 
-          onClick={handlePrint} 
-          className="bg-blue-600 text-white px-12 py-5 rounded-full font-black text-lg shadow-[0_10px_30px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 flex items-center gap-3"
-        >
-          <span className="text-xl">🖨️</span> Save All Documents as PDF
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 no-print">
+        <button onClick={() => window.print()} className="bg-blue-600 text-white px-12 py-5 rounded-full font-black text-xl shadow-2xl hover:bg-blue-700 transition transform hover:scale-105 active:scale-95">
+          Download PDF Bundle
         </button>
       </div>
     </div>
