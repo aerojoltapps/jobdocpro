@@ -1,12 +1,6 @@
 import { JobRole, PackageType } from './types';
 
-/**
- * RAZORPAY CONFIGURATION
- * 1. Go to https://dashboard.razorpay.com/
- * 2. Settings > API Keys
- * 3. Copy your "Key ID"
- * 4. Replace 'rzp_test_YOUR_KEY_HERE' with your key below.
- */
+// IMPORTANT: Replace this with your actual Key ID from Razorpay Dashboard (Settings > API Keys)
 export const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE';
 
 export const PRICING = {

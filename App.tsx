@@ -62,13 +62,13 @@ const Home = () => {
         <section className="relative bg-white pt-20 pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[2px] mb-6 animate-fadeIn">
-              India's Job-Ready Solution
+              India's #1 Job-Ready Solution
             </span>
             <h1 className="text-5xl md:text-7xl font-black text-gray-900 leading-[1.05] tracking-tight mb-8">
               Create ATS-Ready Resumes <br className="hidden md:block" /> 
               <span className="text-blue-600">Tailored for Indian Roles</span>
             </h1>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12 font-medium">
+            <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12 font-medium leading-relaxed">
               JobDocPro helps you generate job-specific, recruiter-friendly resumes that are ready to apply — not just generic AI text.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-6 mb-16">
@@ -79,9 +79,9 @@ const Home = () => {
                 🟢 Create My Resume Now
               </Link>
               <div className="flex flex-col items-center sm:items-start justify-center text-sm font-bold text-gray-400 gap-1 uppercase tracking-widest">
-                <span className="flex items-center gap-2">✔ Indian job market focused</span>
-                <span className="flex items-center gap-2">✔ ATS optimized</span>
-                <span className="flex items-center gap-2">✔ Clean professional formatting</span>
+                <span className="flex items-center gap-2 text-gray-900">✔ Indian job market focused</span>
+                <span className="flex items-center gap-2 text-gray-900">✔ ATS optimized for Top MNCs</span>
+                <span className="flex items-center gap-2 text-gray-900">✔ Clean professional formatting</span>
               </div>
             </div>
             <div className="relative max-w-5xl mx-auto group">
@@ -95,16 +95,16 @@ const Home = () => {
         <section className="bg-gray-50 py-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-4xl font-black mb-4 tracking-tight">Why most resumes fail (even AI ones)</h2>
+              <h2 className="text-4xl font-black mb-4 tracking-tight text-gray-900">Why most resumes fail (even AI ones)</h2>
               <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">The Hard Truth of Modern Hiring</p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
               {[
                 { t: "ATS Rejection", d: "Generic AI resumes use incompatible formats that hiring software can't read.", i: "🚫" },
                 { t: "Keyword Gaps", d: "If your resume doesn't match Indian job role keywords, it never reaches a human.", i: "🔑" },
-                { t: "Poor Structure", d: "Recruiters skip resumes that are messy or too long. You have 6 seconds to impress.", i: "⏱️" }
+                { t: "Poor Structure", d: "Recruiters skip resumes that are messy or too long. You have only 6 seconds to impress.", i: "⏱️" }
               ].map((p, i) => (
-                <div key={i} className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:border-blue-200 transition">
+                <div key={i} className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 hover:border-blue-200 transition">
                   <div className="text-4xl mb-6">{p.i}</div>
                   <h3 className="text-xl font-black mb-3">{p.t}</h3>
                   <p className="text-gray-500 font-medium leading-relaxed">{p.d}</p>
@@ -203,7 +203,7 @@ const Builder = () => {
     }
 
     if (RAZORPAY_KEY_ID === 'rzp_test_YOUR_KEY_HERE') {
-      alert("System Configuration Error: Please update the Razorpay Key ID in constants.ts");
+      alert("Please configure the actual Razorpay Key ID in constants.ts to enable payments.");
       return;
     }
 
@@ -213,7 +213,7 @@ const Builder = () => {
       amount: amount * 100, // paise
       currency: "INR",
       name: "JobDocPro",
-      description: `Unlock Full Resume Pack - ${PRICING[selectedPackage].label}`,
+      description: `Unlock Full Pack - ${PRICING[selectedPackage].label}`,
       image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=100&h=100&fit=crop",
       handler: function(response: any) {
         if (response.razorpay_payment_id) {
@@ -238,7 +238,7 @@ const Builder = () => {
       rzp.open();
     } catch (err) {
       console.error("Razorpay error:", err);
-      alert("Something went wrong with the payment portal. Please ensure your Key ID is correct.");
+      alert("Something went wrong with the payment gateway.");
     }
   };
 
@@ -251,7 +251,7 @@ const Builder = () => {
       setResult(generated);
       window.scrollTo(0, 0);
     } catch (e: any) {
-      alert(e.message || "Something went wrong while generating your resume.");
+      alert(e.message || "Something went wrong while generating your documents.");
     } finally {
       setIsGenerating(false);
     }
@@ -291,7 +291,7 @@ const Builder = () => {
         <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
            <h2 className="text-3xl font-black mb-4 tracking-tight">Generating Job-Ready Documents...</h2>
-           <p className="text-gray-500 font-medium">Customizing for the Indian hiring market.</p>
+           <p className="text-gray-500 font-medium">Customizing keywords for the Indian hiring market.</p>
         </div>
       </Layout>
     );
@@ -302,19 +302,24 @@ const Builder = () => {
       <Layout>
         <div className="max-w-5xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline flex items-center gap-2">
+               <span>←</span> Edit Details
+            </button>
             <div className="flex flex-col items-end">
               {isPaid ? (
-                <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Pro Access</div>
+                <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100 flex items-center gap-2">
+                   <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                   Pro Access
+                </div>
               ) : (
                 <button 
                   onClick={() => setIsCheckout(true)}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition"
+                  className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-200"
                 >
-                  🚀 Unlock Full Resume
+                  🚀 Unlock Full Documents
                 </button>
               )}
-              {isPaid && <span className="text-[10px] text-gray-400 mt-1 font-bold">Credits remaining: {remainingDownloads}</span>}
+              {isPaid && <span className="text-[10px] text-gray-400 mt-1 font-bold uppercase tracking-tighter">Credits remaining: {remainingDownloads}</span>}
             </div>
           </div>
           <DocumentPreview 
@@ -329,19 +334,22 @@ const Builder = () => {
         {isCheckout && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
             <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center" onClick={e => e.stopPropagation()}>
-              <h2 className="text-4xl font-black mb-4">Ready to Apply?</h2>
-              <p className="text-gray-500 mb-8 font-medium">Unlock full PDF export, clean formatting, and job-specific keywords.</p>
+              <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Apply?</h2>
+              <p className="text-gray-500 mb-8 font-medium">Unlock full PDF export, clean formatting, and role-specific keywords.</p>
               <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                  <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
                  <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time Payment</div>
               </div>
-              <button 
-                onClick={handleRazorpayCheckout}
-                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
-              >
-                Unlock My Documents
-              </button>
-              <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">Maybe Later</button>
+              <div className="space-y-4">
+                <button 
+                  onClick={handleRazorpayCheckout}
+                  className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
+                >
+                  Unlock Now
+                </button>
+                <button onClick={() => setIsCheckout(false)} className="block w-full text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">Maybe Later</button>
+              </div>
+              <p className="mt-8 text-[9px] text-gray-300 font-bold uppercase tracking-widest">Secure Payments by Razorpay • SSL Encrypted</p>
             </div>
           </div>
         )}
@@ -352,12 +360,15 @@ const Builder = () => {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-16 px-4">
-        <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8 hover:underline">← Change Package</button>
+        <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8 hover:underline flex items-center gap-1">
+          <span>←</span> Change Package
+        </button>
         <div className="text-center mb-16">
           <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
-            Selected: {PRICING[selectedPackage].label}
+            Plan: {PRICING[selectedPackage].label}
           </span>
-          <h1 className="text-4xl font-black tracking-tight">Tell us about yourself</h1>
+          <h1 className="text-4xl font-black tracking-tight">Complete Your Profile</h1>
+          <p className="text-gray-500 mt-2 font-medium">We'll use this to generate your professional documents.</p>
         </div>
         <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
       </div>
@@ -369,7 +380,7 @@ const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Honest Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Pay once, apply confidently. No subscriptions.</p>
+      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Pay once, apply confidently. No subscriptions, no hidden fees.</p>
       
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
@@ -386,12 +397,13 @@ const FAQ = () => (
       <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Questions?</h1>
       <div className="space-y-6">
         {[
-          { q: "Will this work for Indian ATS?", a: "Yes. Our formats are designed specifically for hiring systems used by top Indian firms and MNCs." },
-          { q: "Is it a recurring payment?", a: "No. You only pay once to unlock the resume pack." },
-          { q: "What if I'm not happy?", a: "We focus on quality. If the AI doesn't get it right, use our multiple edits feature to regenerate until it's perfect." }
+          { q: "Will this work for Indian ATS?", a: "Yes. Our formats are specifically designed for hiring systems used by top Indian firms like TCS, Infosys, and modern MNCs." },
+          { q: "How many times can I download?", a: "Each purchase allows you 3 full generations. This lets you tweak your details and get updated versions without paying again." },
+          { q: "Is it a recurring payment?", a: "Absolutely not. You only pay once to unlock the specific documents you need." },
+          { q: "What if the AI makes a mistake?", a: "You can edit your input details as many times as you like. Your 3-generation quota only counts when you hit 'Generate' again after a successful output." }
         ].map((item, i) => (
-          <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-xl font-black mb-2 leading-tight">{item.q}</h3>
+          <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-100 transition">
+            <h3 className="text-xl font-black mb-2 leading-tight text-gray-900">{item.q}</h3>
             <p className="text-gray-600 font-medium leading-relaxed">{item.a}</p>
           </div>
         ))}
