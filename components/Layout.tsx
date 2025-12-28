@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -65,14 +64,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <h4 className="font-bold text-white mb-6 uppercase tracking-widest text-xs">Support</h4>
               <div className="space-y-4">
                 <p className="text-gray-400 text-sm flex items-center gap-2">
-                  <span className="text-green-500">WhatsApp:</span> +91 98765 43210
-                </p>
-                <p className="text-gray-400 text-sm flex items-center gap-2">
-                  <span className="text-blue-400">Email:</span> help@jobdocpro.com
+                  <span className="text-blue-400 font-bold">Email:</span> aerojoltapps@gmail.com
                 </p>
                 <div className="pt-4 flex gap-4 opacity-50">
                   <span className="text-xs font-bold border border-gray-700 px-2 py-1 rounded">SSL SECURED</span>
-                  <span className="text-xs font-bold border border-gray-700 px-2 py-1 rounded">24/7 SUPPORT</span>
                 </div>
               </div>
             </div>

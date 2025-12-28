@@ -1,15 +1,15 @@
-
 import React, { useState } from 'react';
 import { JobRole, UserData } from '../types';
 
 interface Props {
   onSubmit: (data: UserData) => void;
   isLoading: boolean;
+  initialData?: UserData | null;
 }
 
-const ResumeForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
+const ResumeForm: React.FC<Props> = ({ onSubmit, isLoading, initialData }) => {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<UserData>({
+  const [formData, setFormData] = useState<UserData>(initialData || {
     fullName: '',
     email: '',
     phone: '',

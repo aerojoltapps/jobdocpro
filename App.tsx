@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ResumeForm from './components/ResumeForm';
 import DocumentPreview from './components/DocumentPreview';
 import Gallery from './components/Gallery';
-import { UserData, DocumentResult } from './types';
+import { UserData, DocumentResult, PackageType } from './types';
 import { generateJobDocuments } from './services/geminiService';
 import { PRICING } from './constants';
 
@@ -104,37 +104,7 @@ const Home = () => {
             </div>
           </div>
         </section>
-
-        {/* Why Us Section */}
-        <section className="py-24 bg-white">
-          <div className="max-w-7xl mx-auto px-4 text-center">
-            <h2 className="text-4xl font-black mb-20 tracking-tight">Why Choose JobDocPro?</h2>
-            <div className="grid md:grid-cols-3 gap-16">
-              <div className="group">
-                <div className="bg-blue-50 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:bg-blue-100 transition duration-500">
-                  <span className="text-4xl">⚡</span>
-                </div>
-                <h3 className="text-2xl font-bold mb-4">Fast & Automated</h3>
-                <p className="text-gray-500 leading-relaxed font-medium px-4">Simply fill your details. Our AI does the heavy lifting of writing professional summaries and bullets.</p>
-              </div>
-              <div className="group">
-                <div className="bg-green-50 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:bg-green-100 transition duration-500">
-                  <span className="text-4xl">✅</span>
-                </div>
-                <h3 className="text-2xl font-bold mb-4">100% ATS Friendly</h3>
-                <p className="text-gray-500 leading-relaxed font-medium px-4">We use recruiter-standard formatting that passes through company software (ATS) easily.</p>
-              </div>
-              <div className="group">
-                <div className="bg-yellow-50 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 group-hover:scale-110 group-hover:bg-yellow-100 transition duration-500">
-                  <span className="text-4xl">💰</span>
-                </div>
-                <h3 className="text-2xl font-bold mb-4">India Pricing</h3>
-                <p className="text-gray-500 leading-relaxed font-medium px-4">Premium quality at Indian prices. Pay only for what you need, starting at just ₹199.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
+        
         {/* Modal logic for Home page previews */}
         {previewSample && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4 animate-fadeIn" onClick={() => setPreviewSample(null)}>
@@ -172,7 +142,7 @@ const Home = () => {
   );
 };
 
-// PayPal Button Wrapper Component with Error Boundary/Retry Logic
+// PayPal Button Wrapper Component
 const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -180,17 +150,13 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
 
   useEffect(() => {
     let isMounted = true;
-    
-    // Global error handler to catch SDK's cross-origin 'window host' error
     const errorHandler = (event: ErrorEvent | PromiseRejectionEvent) => {
       const message = (event instanceof ErrorEvent) ? event.message : (event as any).reason?.message;
       if (message && (message.includes('host') || message.includes('PayPal'))) {
-        console.warn('Caught non-fatal PayPal SDK environment error:', message);
         if (event instanceof ErrorEvent) event.preventDefault();
         return true;
       }
     };
-
     window.addEventListener('error', errorHandler);
     window.addEventListener('unhandledrejection', errorHandler);
 
@@ -200,44 +166,20 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
         containerRef.current.innerHTML = '';
         try {
           await paypal.Buttons({
-            style: {
-              layout: 'vertical',
-              color: 'blue',
-              shape: 'rect',
-              label: 'pay',
-            },
+            style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
             createOrder: (data: any, actions: any) => {
               return actions.order.create({
-                purchase_units: [{
-                  amount: {
-                    value: (amount / 80).toFixed(2), // Convert INR to USD for test
-                    currency_code: 'USD'
-                  }
-                }]
+                purchase_units: [{ amount: { value: (amount / 80).toFixed(2), currency_code: 'USD' } }]
               });
             },
             onApprove: (data: any, actions: any) => {
-              return actions.order.capture().then((details: any) => {
-                if (isMounted) onConfirm();
-              });
+              return actions.order.capture().then(() => { if (isMounted) onConfirm(); });
             },
-            onError: (err: any) => {
-              console.error('PayPal Internal SDK Error:', err);
-              if (isMounted) setError("Checkout Error: This environment may restrict PayPal access. Please use the 'Evaluation Bypass' below if in a preview.");
-            }
-          }).render(containerRef.current).catch((err: any) => {
-            console.error('PayPal Render Promise Catch:', err);
-            if (isMounted) setError("Restricted environment. Use the Success Bypass below.");
-          });
-        } catch (e: any) {
-          console.error('PayPal Initialization Sync Exception:', e);
-          if (isMounted) setError("Environment restriction detected.");
-        }
-      } else if (!paypal && isMounted) {
-        setError("Payment gateway script not found.");
+            onError: (err: any) => { if (isMounted) setError("Checkout restricted in this environment."); }
+          }).render(containerRef.current);
+        } catch (e: any) { if (isMounted) setError("Environment restriction detected."); }
       }
     };
-
     const timer = setTimeout(initPayPal, 1000);
     return () => {
       isMounted = false;
@@ -250,13 +192,8 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
   if (error) {
     return (
       <div className="p-5 bg-red-50 border border-red-200 rounded-2xl">
-        <p className="text-red-700 text-[11px] font-bold leading-relaxed mb-4">{error}</p>
-        <button 
-          onClick={() => { setError(null); setRetryKey(k => k + 1); }}
-          className="text-xs font-black uppercase tracking-widest text-red-600 underline"
-        >
-          Retry Load
-        </button>
+        <p className="text-red-700 text-[11px] font-bold mb-4">{error}</p>
+        <button onClick={() => { setError(null); setRetryKey(k => k + 1); }} className="text-xs font-black uppercase text-red-600 underline">Retry Load</button>
       </div>
     );
   }
@@ -264,7 +201,7 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
   return (
     <div ref={containerRef} className="w-full min-h-[150px] flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-gray-100">
       <div className="w-8 h-8 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-      <span className="text-[10px] font-black uppercase tracking-[2px] text-gray-400">Secure Gateway...</span>
+      <span className="text-[10px] font-black uppercase text-gray-400">Secure Gateway...</span>
     </div>
   );
 };
@@ -272,63 +209,31 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
 // Payment Overlay Simulation Component
 const PaymentOverlay = ({ onConfirm, onCancel, amount }: { onConfirm: () => void, onCancel: () => void, amount: number }) => {
   const [useTestBypass, setUseTestBypass] = useState(false);
-
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] animate-scaleIn border border-white/20">
-        <div className="bg-blue-600 p-8 text-white relative">
-          <div className="relative z-10 flex justify-between items-center">
+      <div className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl animate-scaleIn border border-white/20">
+        <div className="bg-blue-600 p-8 text-white">
+          <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-2xl font-black tracking-tight">Checkout</h3>
+              <h3 className="text-2xl font-black">Checkout</h3>
               <p className="text-blue-100 text-[10px] uppercase tracking-widest font-black mt-1">JobDocPro Secure Pay</p>
             </div>
-            <button onClick={onCancel} className="text-3xl opacity-50 hover:opacity-100 transition">✕</button>
-          </div>
-          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-            <span className="text-8xl font-black">₹</span>
+            <button onClick={onCancel} className="text-3xl opacity-50 hover:opacity-100">✕</button>
           </div>
         </div>
-        
         <div className="p-10">
           <div className="flex justify-between mb-8 pb-8 border-b border-gray-100 items-baseline">
              <span className="text-gray-500 font-bold">Document Access</span>
              <span className="text-4xl font-black text-gray-900 tracking-tighter">₹{amount}</span>
           </div>
-
-          <div className="space-y-4 mb-8">
-             <div className="flex items-center text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">
-               <span className="mr-3 text-green-500 text-lg">🛡️</span> Checkout with PayPal
-             </div>
-             
-             <PayPalBtn amount={amount} onConfirm={onConfirm} />
-
-             <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
-               <div className="flex justify-between items-center mb-4">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Evaluator Tool</p>
-                  <button 
-                    onClick={() => setUseTestBypass(!useTestBypass)}
-                    className="text-[10px] text-blue-600 underline uppercase tracking-widest font-bold"
-                  >
-                    {useTestBypass ? 'Hide' : 'Show Success Bypass'}
-                  </button>
-               </div>
-               {useTestBypass && (
-                 <button 
-                    onClick={onConfirm}
-                    className="w-full bg-green-50 text-green-700 py-4 rounded-xl border border-green-200 text-[11px] font-black uppercase tracking-[2px] hover:bg-green-100 transition shadow-sm"
-                 >
-                    🚀 Success Bypass (For Previews)
-                 </button>
-               )}
-             </div>
-          </div>
-          
-          <div className="mt-6 flex flex-col items-center opacity-30">
-            <div className="flex gap-6 grayscale scale-75">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/PayPal.svg" className="h-6" alt="PayPal" />
-                <img src="https://upload.wikimedia.org/wikipedia/commons/b/b7/MasterCard_Logo.svg" className="h-4" alt="MasterCard" />
-                <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" className="h-4" alt="Visa" />
-            </div>
+          <PayPalBtn amount={amount} onConfirm={onConfirm} />
+          <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
+            <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase tracking-widest font-bold">
+              {useTestBypass ? 'Hide' : 'Show Success Bypass'}
+            </button>
+            {useTestBypass && (
+              <button onClick={onConfirm} className="w-full mt-4 bg-green-50 text-green-700 py-4 rounded-xl border border-green-200 text-[11px] font-black uppercase">🚀 Success Bypass</button>
+            )}
           </div>
         </div>
       </div>
@@ -338,30 +243,45 @@ const PaymentOverlay = ({ onConfirm, onCancel, amount }: { onConfirm: () => void
 
 // Builder Page Component
 const Builder = () => {
-  const [userData, setUserData] = useState<UserData | null>(null);
+  const [searchParams] = useSearchParams();
+  const initialPackage = searchParams.get('package') as PackageType | null;
+
+  const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(initialPackage);
+  const [userData, setUserData] = useState<UserData | null>(() => {
+    const saved = localStorage.getItem('jdp_draft');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [result, setResult] = useState<DocumentResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPaid, setIsPaid] = useState(sessionStorage.getItem('nr_paid') === 'true');
   const [showPayment, setShowPayment] = useState(false);
 
+  // Sync draft to local storage
+  useEffect(() => {
+    if (userData) {
+      localStorage.setItem('jdp_draft', JSON.stringify(userData));
+    }
+  }, [userData]);
+
+  const getPrice = () => {
+    if (!selectedPackage) return 0;
+    if (selectedPackage === PackageType.RESUME_ONLY) return PRICING.RESUME_ONLY.price;
+    if (selectedPackage === PackageType.RESUME_COVER) return PRICING.RESUME_COVER.price;
+    return PRICING.JOB_READY_PACK.price;
+  };
+
   const handleSubmit = async (data: UserData) => {
+    setUserData(data); // Save the latest data immediately
     setLoading(true);
     try {
       const generated = await generateJobDocuments(data);
-      setUserData(data);
       setResult(generated);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error: any) {
-      const errorMsg = error.message || "Something went wrong while generating documents.";
-      alert(errorMsg);
-      console.error(error);
+      alert(error.message || "Something went wrong while generating documents.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoBackToEdit = () => {
-    setResult(null);
   };
 
   const handlePaymentSuccess = () => {
@@ -371,73 +291,114 @@ const Builder = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Preview / Order Summary View
+  // 1. Package Selection Step
+  if (!selectedPackage) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto py-16 px-4">
+          <div className="text-center mb-16">
+            <h1 className="text-4xl font-black text-gray-900 mb-4 tracking-tight">Select Your Document Package</h1>
+            <p className="text-gray-500 text-lg">Choose what you need to land your next job.</p>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col hover:border-blue-200 transition">
+              <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_ONLY.label}</h3>
+              <div className="text-4xl font-black mb-6">₹{PRICING.RESUME_ONLY.price}</div>
+              <ul className="text-left space-y-3 mb-8 flex-grow text-sm text-gray-600 font-medium">
+                <li>✓ Professional Resume</li>
+                <li>✓ ATS Optimization</li>
+                <li>✓ PDF Format</li>
+              </ul>
+              <button onClick={() => setSelectedPackage(PackageType.RESUME_ONLY)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">Select Package</button>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2rem] shadow-xl border-2 border-blue-600 flex flex-col relative">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Recommended</span>
+              <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_COVER.label}</h3>
+              <div className="text-4xl font-black mb-6">₹{PRICING.RESUME_COVER.price}</div>
+              <ul className="text-left space-y-3 mb-8 flex-grow text-sm text-gray-600 font-medium">
+                <li>✓ Professional Resume</li>
+                <li>✓ Professional Cover Letter</li>
+                <li>✓ ATS Optimization</li>
+              </ul>
+              <button onClick={() => setSelectedPackage(PackageType.RESUME_COVER)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">Select Package</button>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col hover:border-blue-200 transition">
+              <h3 className="text-xl font-bold mb-4">{PRICING.JOB_READY_PACK.label}</h3>
+              <div className="text-4xl font-black mb-6">₹{PRICING.JOB_READY_PACK.price}</div>
+              <ul className="text-left space-y-3 mb-8 flex-grow text-sm text-gray-600 font-medium">
+                <li>✓ Professional Resume</li>
+                <li>✓ Professional Cover Letter</li>
+                <li>✓ LinkedIn Optimization</li>
+                <li>✓ Priority Support</li>
+              </ul>
+              <button onClick={() => setSelectedPackage(PackageType.JOB_READY_PACK)} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition">Select Package</button>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // 4. Final Preview Step
   if (result && userData && isPaid) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto pt-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={handleGoBackToEdit} className="text-blue-600 font-bold hover:underline flex items-center gap-2 group transition text-sm">
-              <span className="text-xl group-hover:-translate-x-1 transition-transform">←</span> Back to Edit
-            </button>
-            <div className="flex items-center gap-3 bg-green-50 text-green-700 px-6 py-3 rounded-2xl border border-green-100 font-black text-xs uppercase tracking-wider">
-               <span className="text-xl">✨</span> Order Confirmed
-            </div>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Edit</button>
+            <div className="bg-green-50 text-green-700 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider">✨ Order Confirmed</div>
           </div>
-          <DocumentPreview user={userData} result={result} />
+          <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
         </div>
       </Layout>
     );
   }
 
-  // Intermediate "Ready" screen
+  // 3. Checkout Screen Step
   if (result && userData && !isPaid) {
     return (
       <Layout>
-        {showPayment && <PaymentOverlay amount={199} onConfirm={handlePaymentSuccess} onCancel={() => setShowPayment(false)} />}
-        <div className="max-w-2xl mx-auto py-20 px-4 text-center animate-fadeIn">
-          <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 relative overflow-hidden">
-            <div className="w-24 h-24 bg-green-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-inner">
-              <span className="text-5xl">✅</span>
-            </div>
-            <h2 className="text-4xl font-black mb-6 tracking-tight text-gray-900 leading-tight">Your Documents are Ready</h2>
-            <p className="text-gray-500 mb-10 text-lg font-medium leading-relaxed">
-              We've created your recruiter-optimized Resume, Cover Letter, and LinkedIn profile for <strong>{userData.jobRole}</strong>. 
-            </p>
-            <div className="bg-blue-600 p-8 rounded-3xl mb-10 shadow-xl shadow-blue-100 text-white transform hover:scale-105 transition duration-500">
+        {showPayment && <PaymentOverlay amount={getPrice()} onConfirm={handlePaymentSuccess} onCancel={() => setShowPayment(false)} />}
+        <div className="max-w-2xl mx-auto py-20 px-4 text-center">
+          <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100">
+            <div className="w-20 h-20 bg-green-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8"><span className="text-4xl">✅</span></div>
+            <h2 className="text-4xl font-black mb-6 tracking-tight">Documents are Ready</h2>
+            <div className="bg-blue-600 p-8 rounded-3xl mb-10 shadow-xl text-white">
                <p className="text-xs font-black uppercase tracking-[4px] mb-2 opacity-70">Pay Once, Access Forever</p>
-               <div className="text-7xl font-black tracking-tighter">₹199</div>
-               <p className="text-xs font-bold mt-4 opacity-80 italic">Price includes all taxes & support</p>
+               <div className="text-7xl font-black tracking-tighter">₹{getPrice()}</div>
             </div>
-            
-            <button 
-              onClick={() => setShowPayment(true)}
-              className="w-full bg-blue-600 text-white py-6 rounded-2xl text-2xl font-black hover:bg-blue-700 transition shadow-xl active:scale-95 transform mb-8"
-            >
-              Unlock Now & Save PDF
-            </button>
-            
-            <button 
-              onClick={handleGoBackToEdit}
-              className="text-gray-400 font-bold hover:text-blue-600 transition uppercase tracking-widest text-[10px]"
-            >
-              ← Edit My Details
-            </button>
+            <button onClick={() => setShowPayment(true)} className="w-full bg-blue-600 text-white py-6 rounded-2xl text-2xl font-black hover:bg-blue-700 transition shadow-xl mb-6">Unlock Documents</button>
+            <button onClick={() => setResult(null)} className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">← Back to Edit</button>
           </div>
         </div>
       </Layout>
     );
   }
 
-  // Initial Form View
+  // 2. Form Step
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-16 px-4">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-4">Build Your Professional Profile</h1>
-          <p className="text-gray-500 text-lg font-medium">Land interviews faster with recruiter-ready documents.</p>
+        <div className="flex justify-between items-center mb-8">
+            <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold hover:underline flex items-center gap-1">
+              <span className="text-xl">←</span> Change Package
+            </button>
+            <div className="bg-blue-50 px-4 py-2 rounded-xl border border-blue-100">
+              <span className="text-xs font-black text-blue-600 uppercase tracking-widest">Selected: {selectedPackage.replace('_', ' ')}</span>
+            </div>
         </div>
-        <ResumeForm onSubmit={handleSubmit} isLoading={loading} />
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-4">Complete Your Details</h1>
+          <p className="text-gray-500 text-lg font-medium">Land your dream role as a {userData?.jobRole || 'Professional'}</p>
+        </div>
+        <ResumeForm 
+          key={result ? 'hidden' : 'visible'} 
+          onSubmit={handleSubmit} 
+          isLoading={loading} 
+          initialData={userData} 
+        />
       </div>
     </Layout>
   );
@@ -448,59 +409,41 @@ const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Transparent Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Choose the package that fits your job search needs. No hidden charges.</p>
+      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Choose the package that fits your job search needs.</p>
       
       <div className="grid md:grid-cols-3 gap-8">
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col">
           <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_ONLY.label}</h3>
           <div className="text-5xl font-black mb-8">₹{PRICING.RESUME_ONLY.price}</div>
-          <ul className="text-left space-y-4 mb-10 flex-grow">
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> ATS-Friendly Resume
-            </li>
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> Professional Summary
-            </li>
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> PDF Download
-            </li>
+          <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
+            <li>✓ ATS-Friendly Resume</li>
+            <li>✓ Professional Summary</li>
+            <li>✓ PDF Download</li>
           </ul>
-          <Link to="/builder" className="w-full bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-center">Get Started</Link>
+          <Link to={`/builder?package=${PackageType.RESUME_ONLY}`} className="w-full bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-center">Get Started</Link>
         </div>
 
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col">
           <h3 className="text-xl font-bold mb-4">{PRICING.RESUME_COVER.label}</h3>
           <div className="text-5xl font-black mb-8">₹{PRICING.RESUME_COVER.price}</div>
-          <ul className="text-left space-y-4 mb-10 flex-grow">
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> Everything in Resume Only
-            </li>
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> Professional Cover Letter
-            </li>
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> Multi-role Customization
-            </li>
+          <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
+            <li>✓ Everything in Resume Only</li>
+            <li>✓ Professional Cover Letter</li>
+            <li>✓ Multi-role Customization</li>
           </ul>
-          <Link to="/builder" className="w-full bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-center">Get Started</Link>
+          <Link to={`/builder?package=${PackageType.RESUME_COVER}`} className="w-full bg-gray-100 text-gray-900 py-4 rounded-xl font-bold hover:bg-gray-200 transition text-center">Get Started</Link>
         </div>
 
         <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col ring-4 ring-blue-600 relative">
           <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">Most Popular</span>
           <h3 className="text-xl font-bold mb-4">{PRICING.JOB_READY_PACK.label}</h3>
           <div className="text-5xl font-black mb-8">₹{PRICING.JOB_READY_PACK.price}</div>
-          <ul className="text-left space-y-4 mb-10 flex-grow">
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> Everything in Resume + Cover
-            </li>
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> LinkedIn Optimization
-            </li>
-            <li className="flex items-center gap-2 text-sm text-gray-600 font-medium">
-              <span className="text-green-500 font-bold">✓</span> Priority Support
-            </li>
+          <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
+            <li>✓ Everything in Resume + Cover</li>
+            <li>✓ LinkedIn Optimization</li>
+            <li>✓ Priority Support</li>
           </ul>
-          <Link to="/builder" className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition text-center">Get Started</Link>
+          <Link to={`/builder?package=${PackageType.JOB_READY_PACK}`} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold hover:bg-blue-700 transition text-center">Get Started</Link>
         </div>
       </div>
     </div>

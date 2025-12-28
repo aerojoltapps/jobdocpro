@@ -1,16 +1,20 @@
 
 import React from 'react';
-import { UserData, DocumentResult } from '../types';
+import { UserData, DocumentResult, PackageType } from '../types';
 
 interface Props {
   user: UserData;
   result: DocumentResult;
+  packageType: PackageType;
 }
 
-const DocumentPreview: React.FC<Props> = ({ user, result }) => {
+const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
   const handlePrint = () => {
     window.print();
   };
+
+  const hasCoverLetter = packageType === PackageType.RESUME_COVER || packageType === PackageType.JOB_READY_PACK;
+  const hasLinkedIn = packageType === PackageType.JOB_READY_PACK;
 
   return (
     <div className="space-y-12 pb-20">
@@ -89,39 +93,43 @@ const DocumentPreview: React.FC<Props> = ({ user, result }) => {
       </section>
 
       {/* Cover Letter Section - Hidden during print unless specified */}
-      <section className="bg-white p-10 shadow-xl border border-gray-100 max-w-[210mm] mx-auto no-print rounded-2xl">
-        <div className="flex items-center gap-3 mb-6">
-           <span className="bg-blue-100 text-blue-600 p-2 rounded-lg text-xl">📧</span>
-           <h2 className="text-2xl font-bold text-gray-800">Professional Cover Letter</h2>
-        </div>
-        <div className="bg-gray-50 p-8 rounded-xl border border-gray-200">
-          <p className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed font-serif">
-            {result.coverLetter}
-          </p>
-        </div>
-      </section>
+      {hasCoverLetter && (
+        <section className="bg-white p-10 shadow-xl border border-gray-100 max-w-[210mm] mx-auto no-print rounded-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="bg-blue-100 text-blue-600 p-2 rounded-lg text-xl">📧</span>
+            <h2 className="text-2xl font-bold text-gray-800">Professional Cover Letter</h2>
+          </div>
+          <div className="bg-gray-50 p-8 rounded-xl border border-gray-200">
+            <p className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed font-serif">
+              {result.coverLetter}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* LinkedIn Section */}
-      <section className="bg-white p-10 shadow-xl border border-gray-100 max-w-[210mm] mx-auto no-print rounded-2xl">
-        <div className="flex items-center gap-3 mb-6">
-           <span className="bg-blue-600 text-white p-2 rounded-lg text-xl">in</span>
-           <h2 className="text-2xl font-bold text-gray-800">LinkedIn Profile Optimization</h2>
-        </div>
-        <div className="space-y-6">
-          <div>
-            <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">Optimized Headline</label>
-            <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-800">
-              {result.linkedinHeadline}
+      {hasLinkedIn && (
+        <section className="bg-white p-10 shadow-xl border border-gray-100 max-w-[210mm] mx-auto no-print rounded-2xl">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="bg-blue-600 text-white p-2 rounded-lg text-xl">in</span>
+            <h2 className="text-2xl font-bold text-gray-800">LinkedIn Profile Optimization</h2>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">Optimized Headline</label>
+              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-800">
+                {result.linkedinHeadline}
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">About Section (Keywords optimized)</label>
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
+                {result.linkedinSummary}
+              </div>
             </div>
           </div>
-          <div>
-            <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">About Section (Keywords optimized)</label>
-            <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
-              {result.linkedinSummary}
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Action Bar */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 no-print flex gap-4">
