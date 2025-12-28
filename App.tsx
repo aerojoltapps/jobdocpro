@@ -14,7 +14,6 @@ const SAMPLE_DATA = [
   { role: "Administrative Assistant", img: "https://images.unsplash.com/photo-1549923746-c502d488b3ea?auto=format&fit=crop&q=80&w=800", tag: "Corporate Ready" }
 ];
 
-// Reusable Package Card Component
 const PackageCard = ({ 
   pkgKey, 
   data, 
@@ -146,7 +145,6 @@ const Builder = () => {
   const [isCheckout, setIsCheckout] = useState(false);
   const [useTestBypass, setUseTestBypass] = useState(false);
 
-  // Persistence Logic: Restricted based on Email + Phone with 2 download limit
   const getIdentifier = (email: string, phone: string) => `${email.toLowerCase().trim()}_${phone.trim()}`;
   
   const [paidIdentifiers, setPaidIdentifiers] = useState<string[]>(() => 
@@ -158,7 +156,8 @@ const Builder = () => {
 
   const currentId = userData ? getIdentifier(userData.email, userData.phone) : '';
   const isPaid = paidIdentifiers.includes(currentId);
-  const remainingDownloads = 2 - (usageMap[currentId] || 0);
+  const usageCount = usageMap[currentId] || 0;
+  const remainingDownloads = 2 - usageCount;
 
   useEffect(() => {
     if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
@@ -175,14 +174,13 @@ const Builder = () => {
   const onFormSubmit = (data: UserData) => {
     setUserData(data);
     const id = getIdentifier(data.email, data.phone);
+    const count = usageMap[id] || 0;
     
-    if (paidIdentifiers.includes(id)) {
-      if ((usageMap[id] || 0) < 2) {
-        runGeneration(data);
-      } else {
-        alert("Download limit reached for this Email/Phone combination. Please contact support.");
-      }
+    // Allow generation only if user has paid AND has remaining quota
+    if (paidIdentifiers.includes(id) && count < 2) {
+      runGeneration(data);
     } else {
+      // Otherwise, trigger payment flow (either first time or for renewal)
       setIsCheckout(true);
       window.scrollTo(0, 0);
     }
@@ -191,9 +189,17 @@ const Builder = () => {
   const handlePaymentSuccess = async () => {
     if (userData) {
       const id = getIdentifier(userData.email, userData.phone);
+      
+      // RESET quota for this identity upon successful payment
+      setUsageMap(prev => ({
+        ...prev,
+        [id]: 0
+      }));
+
       if (!paidIdentifiers.includes(id)) {
         setPaidIdentifiers(prev => [...prev, id]);
       }
+      
       setIsCheckout(false);
       await runGeneration(userData);
     }
@@ -206,7 +212,6 @@ const Builder = () => {
       const generated = await generateJobDocuments(data);
       const id = getIdentifier(data.email, data.phone);
       
-      // Increment usage count
       setUsageMap(prev => ({
         ...prev,
         [id]: (prev[id] || 0) + 1
@@ -248,7 +253,8 @@ const Builder = () => {
     );
   }
 
-  if (result && userData && isPaid) {
+  // Only show results if paid AND within quota
+  if (result && userData && isPaid && usageCount <= 2) {
     return (
       <Layout>
         <div className="max-w-4xl mx-auto py-10 px-4">
@@ -256,7 +262,7 @@ const Builder = () => {
             <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
             <div className="flex flex-col items-end">
               <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Access Verified</div>
-              <span className="text-[10px] text-gray-400 mt-1 font-bold uppercase">Downloads remaining: {remainingDownloads}</span>
+              <span className="text-[10px] text-gray-400 mt-1 font-bold uppercase">Downloads remaining: {Math.max(0, remainingDownloads)}</span>
             </div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
@@ -265,15 +271,21 @@ const Builder = () => {
     );
   }
 
-  if (isCheckout && userData && !isPaid) {
+  if (isCheckout && userData) {
+    const isRenewing = isPaid && usageCount >= 2;
     return (
       <Layout>
         <div className="max-w-2xl mx-auto py-20 px-4 text-center">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 animate-fadeIn">
-            <h2 className="text-4xl font-black mb-4">Complete Payment</h2>
-            <p className="text-gray-500 mb-8 font-medium">Restricted to: {userData.email} | {userData.phone}</p>
+            <h2 className="text-4xl font-black mb-4">{isRenewing ? 'Renew Quota' : 'Complete Payment'}</h2>
+            <p className="text-gray-500 mb-8 font-medium">
+              {isRenewing 
+                ? 'Your previous 2-download quota for this email/phone is finished. Pay again to get 2 fresh downloads.' 
+                : `Ready to generate documents for: ${userData.email}`}
+            </p>
             <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
+               <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">Includes 2 Generations</div>
             </div>
             <div className="max-w-sm mx-auto space-y-6">
               <PayPalBtn amount={PRICING[selectedPackage].price} onConfirm={handlePaymentSuccess} />
@@ -307,7 +319,7 @@ const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Transparent Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">One payment per document. Choose your level of career boost.</p>
+      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">One payment per document. Each purchase includes 2 full generations.</p>
       
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
@@ -324,9 +336,9 @@ const FAQ = () => (
       <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Frequently Asked Questions</h1>
       <div className="space-y-6">
         {[
-          { q: "How many resumes can I generate?", a: "Each payment allows up to 2 downloads for the same Email + Phone combination. You can edit your details between downloads." },
+          { q: "How many resumes can I generate?", a: "Each payment allows up to 2 generations for the same Email + Phone combination. Once exhausted, you can simply pay again to get 2 more." },
           { q: "Is it ATS-friendly?", a: "Yes, our formats are rigorously tested for Indian hiring systems." },
-          { q: "Can I upgrade later?", a: "Currently, each package is separate. We recommend the Job Ready Pack for the best value." }
+          { q: "What if I need to change my details?", a: "You can edit your details as many times as you want before using your 2nd generation." }
         ].map((item, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="text-xl font-black mb-2 leading-tight">{item.q}</h3>
