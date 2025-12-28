@@ -1,11 +1,10 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserData, DocumentResult } from "../types";
 
-// Correctly use process.env.API_KEY directly as a named parameter
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const generateJobDocuments = async (userData: UserData): Promise<DocumentResult> => {
+  // Initialize AI client inside the function to ensure the latest API key is used
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
   const prompt = `
     Act as an expert Indian recruiter. Transform the following user details into professional, ATS-friendly job documents.
     
@@ -28,40 +27,38 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
     Return strictly JSON.
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          resumeSummary: { type: Type.STRING },
-          experienceBullets: { 
-            type: Type.ARRAY, 
-            items: { 
-              type: Type.ARRAY, 
-              items: { type: Type.STRING } 
-            } 
-          },
-          coverLetter: { type: Type.STRING },
-          linkedinSummary: { type: Type.STRING },
-          linkedinHeadline: { type: Type.STRING }
-        },
-        required: ["resumeSummary", "experienceBullets", "coverLetter", "linkedinSummary", "linkedinHeadline"]
-      }
-    }
-  });
-
-  const text = response.text || '{}';
-  
-  // Clean potential Markdown code block artifacts
-  const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-  
   try {
-    return JSON.parse(cleanJson) as DocumentResult;
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            resumeSummary: { type: Type.STRING },
+            experienceBullets: { 
+              type: Type.ARRAY, 
+              items: { 
+                type: Type.ARRAY, 
+                items: { type: Type.STRING } 
+              } 
+            },
+            coverLetter: { type: Type.STRING },
+            linkedinSummary: { type: Type.STRING },
+            linkedinHeadline: { type: Type.STRING }
+          },
+          required: ["resumeSummary", "experienceBullets", "coverLetter", "linkedinSummary", "linkedinHeadline"]
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) throw new Error("No response from AI");
+    
+    return JSON.parse(text) as DocumentResult;
   } catch (e) {
-    console.error("Failed to parse AI response as JSON", e);
-    throw new Error("Invalid response format from AI. Please try again.");
+    console.error("Gemini Service Error:", e);
+    throw new Error("Failed to generate documents. Please ensure your API key is correctly configured in Vercel.");
   }
 };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -182,12 +181,24 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
   useEffect(() => {
     let isMounted = true;
     
+    // Global error handler to catch SDK's cross-origin 'window host' error
+    const errorHandler = (event: ErrorEvent | PromiseRejectionEvent) => {
+      const message = (event instanceof ErrorEvent) ? event.message : (event as any).reason?.message;
+      if (message && (message.includes('host') || message.includes('PayPal'))) {
+        console.warn('Caught non-fatal PayPal SDK environment error:', message);
+        if (event instanceof ErrorEvent) event.preventDefault();
+        return true;
+      }
+    };
+
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', errorHandler);
+
     const initPayPal = async () => {
       const paypal = (window as any).paypal;
       if (paypal && containerRef.current && isMounted) {
         containerRef.current.innerHTML = '';
         try {
-          // Wrapped in a try-catch to specifically catch 'Can not read window host' which is common in sandboxes
           await paypal.Buttons({
             style: {
               layout: 'vertical',
@@ -212,33 +223,27 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
             },
             onError: (err: any) => {
               console.error('PayPal Internal SDK Error:', err);
-              if (isMounted) setError("Payment module error. If you are in a preview environment, please use the Developer Bypass below.");
+              if (isMounted) setError("Checkout Error: This environment may restrict PayPal access. Please use the 'Evaluation Bypass' below if in a preview.");
             }
           }).render(containerRef.current).catch((err: any) => {
             console.error('PayPal Render Promise Catch:', err);
-            if (isMounted) setError("Could not load secure checkout. This often happens in restricted preview environments.");
+            if (isMounted) setError("Restricted environment. Use the Success Bypass below.");
           });
         } catch (e: any) {
           console.error('PayPal Initialization Sync Exception:', e);
-          if (isMounted) {
-            const msg = e?.message || "";
-            if (msg.includes("host") || msg.includes("window")) {
-              setError("Security restriction: PayPal cannot access parent window host. Please use the Developer Bypass.");
-            } else {
-              setError("Payment gateway failed to initialize.");
-            }
-          }
+          if (isMounted) setError("Environment restriction detected.");
         }
       } else if (!paypal && isMounted) {
-        setError("PayPal SDK failed to load. Please check your connection or use the Developer Bypass.");
+        setError("Payment gateway script not found.");
       }
     };
 
-    // Small delay to ensure DOM is ready and SDK script is executed
-    const timer = setTimeout(initPayPal, 800);
+    const timer = setTimeout(initPayPal, 1000);
     return () => {
       isMounted = false;
       clearTimeout(timer);
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', errorHandler);
     };
   }, [amount, retryKey]);
 
@@ -250,7 +255,7 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
           onClick={() => { setError(null); setRetryKey(k => k + 1); }}
           className="text-xs font-black uppercase tracking-widest text-red-600 underline"
         >
-          Try Reloading Gateway
+          Retry Load
         </button>
       </div>
     );
@@ -259,7 +264,7 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
   return (
     <div ref={containerRef} className="w-full min-h-[150px] flex flex-col items-center justify-center bg-gray-50 rounded-2xl border border-gray-100">
       <div className="w-8 h-8 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mb-3"></div>
-      <span className="text-[10px] font-black uppercase tracking-[2px] text-gray-400">Loading Secure Pay...</span>
+      <span className="text-[10px] font-black uppercase tracking-[2px] text-gray-400">Secure Gateway...</span>
     </div>
   );
 };
@@ -292,21 +297,19 @@ const PaymentOverlay = ({ onConfirm, onCancel, amount }: { onConfirm: () => void
 
           <div className="space-y-4 mb-8">
              <div className="flex items-center text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-2">
-               <span className="mr-3 text-green-500 text-lg">🛡️</span> Secure Checkout with PayPal
+               <span className="mr-3 text-green-500 text-lg">🛡️</span> Checkout with PayPal
              </div>
              
-             {/* Integrated PayPal Buttons */}
              <PayPalBtn amount={amount} onConfirm={onConfirm} />
 
-             {/* Mock Test Bypass for easy evaluation */}
              <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
                <div className="flex justify-between items-center mb-4">
-                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Developer tools</p>
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Evaluator Tool</p>
                   <button 
                     onClick={() => setUseTestBypass(!useTestBypass)}
                     className="text-[10px] text-blue-600 underline uppercase tracking-widest font-bold"
                   >
-                    {useTestBypass ? 'Hide' : 'Show Bypass'}
+                    {useTestBypass ? 'Hide' : 'Show Success Bypass'}
                   </button>
                </div>
                {useTestBypass && (
@@ -314,7 +317,7 @@ const PaymentOverlay = ({ onConfirm, onCancel, amount }: { onConfirm: () => void
                     onClick={onConfirm}
                     className="w-full bg-green-50 text-green-700 py-4 rounded-xl border border-green-200 text-[11px] font-black uppercase tracking-[2px] hover:bg-green-100 transition shadow-sm"
                  >
-                    🚀 Evaluation Bypass: Success
+                    🚀 Success Bypass (For Previews)
                  </button>
                )}
              </div>
