@@ -6,7 +6,7 @@ import DocumentPreview from './components/DocumentPreview';
 import Gallery from './components/Gallery';
 import { UserData, DocumentResult, PackageType } from './types';
 import { generateJobDocuments } from './services/geminiService';
-import { PRICING } from './constants';
+import { PRICING, RAZORPAY_KEY_ID } from './constants';
 
 const SAMPLE_DATA = [
   { role: "Software Developer", img: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=800", tag: "Tech Choice" },
@@ -145,13 +145,24 @@ const Builder = () => {
   const handleRazorpayCheckout = () => {
     if (!userData || !selectedPackage) return;
     
+    if (!(window as any).Razorpay) {
+      alert("Razorpay SDK not loaded. Please check your internet connection.");
+      return;
+    }
+
+    if (RAZORPAY_KEY_ID === 'rzp_test_YOUR_KEY_HERE') {
+      alert("Please configure your RAZORPAY_KEY_ID in constants.ts first!");
+      return;
+    }
+
     const amount = PRICING[selectedPackage].price;
     const options = {
-      key: "rzp_test_placeholder", // REPLACE WITH REAL RAZORPAY KEY ID
+      key: RAZORPAY_KEY_ID,
       amount: amount * 100, // Amount in paise
       currency: "INR",
       name: "JobDocPro",
-      description: `Payment for ${PRICING[selectedPackage].label}`,
+      description: `Job Ready Pack - ${PRICING[selectedPackage].label}`,
+      image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=100&h=100&fit=crop",
       handler: function(response: any) {
         if (response.razorpay_payment_id) {
           handlePaymentSuccess();
@@ -162,16 +173,25 @@ const Builder = () => {
         email: userData.email,
         contact: userData.phone
       },
+      notes: {
+        package: selectedPackage,
+        role: userData.jobRole
+      },
       theme: {
         color: "#2563eb"
       }
     };
 
-    const rzp = new (window as any).Razorpay(options);
-    rzp.on('payment.failed', function (response: any) {
-      alert("Payment failed: " + response.error.description);
-    });
-    rzp.open();
+    try {
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        alert("Payment failed: " + response.error.description);
+      });
+      rzp.open();
+    } catch (err) {
+      console.error("Razorpay error:", err);
+      alert("Something went wrong with Razorpay. Please ensure your Key ID is correct.");
+    }
   };
 
   const onFormSubmit = (data: UserData) => {

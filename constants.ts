@@ -1,5 +1,7 @@
-
 import { JobRole, PackageType } from './types';
+
+// REPLACE THIS with your actual Key ID from Razorpay Dashboard > Settings > API Keys
+export const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE';
 
 export const PRICING = {
   [PackageType.RESUME_ONLY]: { 
