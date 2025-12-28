@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -63,8 +62,6 @@ const PackageCard = ({
 };
 
 const Home = () => {
-  const [previewSample, setPreviewSample] = useState<typeof SAMPLE_DATA[0] | null>(null);
-
   return (
     <Layout>
       <div className="overflow-hidden">
@@ -96,7 +93,7 @@ const Home = () => {
                 </div>
               </div>
               <div className="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-6 lg:flex lg:items-center">
-                 <div className="relative group cursor-pointer" onClick={() => setPreviewSample(SAMPLE_DATA[0])}>
+                 <div className="relative group">
                    <div className="absolute -inset-4 bg-blue-600/5 rounded-[2rem] blur-2xl group-hover:bg-blue-600/10 transition"></div>
                    <img src={SAMPLE_DATA[0].img} alt="Resume Preview" className="relative rounded-2xl shadow-2xl border-4 border-white" />
                  </div>
@@ -149,21 +146,42 @@ const Builder = () => {
   const [isCheckout, setIsCheckout] = useState(false);
   const [useTestBypass, setUseTestBypass] = useState(false);
 
-  // 1 Resume = 1 Payment Enforcement
-  // We track payment per email per session
-  const [paidEmail, setPaidEmail] = useState(sessionStorage.getItem('paid_email') || '');
-  const isPaid = userData?.email === paidEmail && paidEmail !== '';
+  // Persistence Logic: Restricted based on Email + Phone with 2 download limit
+  const getIdentifier = (email: string, phone: string) => `${email.toLowerCase().trim()}_${phone.trim()}`;
+  
+  const [paidIdentifiers, setPaidIdentifiers] = useState<string[]>(() => 
+    JSON.parse(localStorage.getItem('jdp_paid_list') || '[]')
+  );
+  const [usageMap, setUsageMap] = useState<Record<string, number>>(() => 
+    JSON.parse(localStorage.getItem('jdp_usage_map') || '{}')
+  );
+
+  const currentId = userData ? getIdentifier(userData.email, userData.phone) : '';
+  const isPaid = paidIdentifiers.includes(currentId);
+  const remainingDownloads = 2 - (usageMap[currentId] || 0);
 
   useEffect(() => {
     if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
   }, [userData]);
 
+  useEffect(() => {
+    localStorage.setItem('jdp_paid_list', JSON.stringify(paidIdentifiers));
+  }, [paidIdentifiers]);
+
+  useEffect(() => {
+    localStorage.setItem('jdp_usage_map', JSON.stringify(usageMap));
+  }, [usageMap]);
+
   const onFormSubmit = (data: UserData) => {
     setUserData(data);
-    // If already paid for this email, regenerate immediately
-    if (data.email === paidEmail) {
-      setIsGenerating(true);
-      setTimeout(() => runGeneration(data), 200);
+    const id = getIdentifier(data.email, data.phone);
+    
+    if (paidIdentifiers.includes(id)) {
+      if ((usageMap[id] || 0) < 2) {
+        runGeneration(data);
+      } else {
+        alert("Download limit reached for this Email/Phone combination. Please contact support.");
+      }
     } else {
       setIsCheckout(true);
       window.scrollTo(0, 0);
@@ -172,8 +190,10 @@ const Builder = () => {
 
   const handlePaymentSuccess = async () => {
     if (userData) {
-      sessionStorage.setItem('paid_email', userData.email);
-      setPaidEmail(userData.email);
+      const id = getIdentifier(userData.email, userData.phone);
+      if (!paidIdentifiers.includes(id)) {
+        setPaidIdentifiers(prev => [...prev, id]);
+      }
       setIsCheckout(false);
       await runGeneration(userData);
     }
@@ -181,9 +201,17 @@ const Builder = () => {
 
   const runGeneration = async (data: UserData) => {
     setIsGenerating(true);
-    setResult(null); // Clear previous result to force UI update
+    setResult(null);
     try {
       const generated = await generateJobDocuments(data);
+      const id = getIdentifier(data.email, data.phone);
+      
+      // Increment usage count
+      setUsageMap(prev => ({
+        ...prev,
+        [id]: (prev[id] || 0) + 1
+      }));
+      
       setResult(generated);
       window.scrollTo(0, 0);
     } catch (e: any) {
@@ -225,8 +253,11 @@ const Builder = () => {
       <Layout>
         <div className="max-w-4xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Details</button>
-            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Session Secured</div>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
+            <div className="flex flex-col items-end">
+              <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Access Verified</div>
+              <span className="text-[10px] text-gray-400 mt-1 font-bold uppercase">Downloads remaining: {remainingDownloads}</span>
+            </div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
         </div>
@@ -240,13 +271,13 @@ const Builder = () => {
         <div className="max-w-2xl mx-auto py-20 px-4 text-center">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 animate-fadeIn">
             <h2 className="text-4xl font-black mb-4">Complete Payment</h2>
-            <p className="text-gray-500 mb-8 font-medium">One payment per resume (Locked to {userData.email})</p>
+            <p className="text-gray-500 mb-8 font-medium">Restricted to: {userData.email} | {userData.phone}</p>
             <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
             </div>
             <div className="max-w-sm mx-auto space-y-6">
               <PayPalBtn amount={PRICING[selectedPackage].price} onConfirm={handlePaymentSuccess} />
-              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-50">Test Bypass</button>
+              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-30">Test Bypass</button>
               {useTestBypass && <button onClick={handlePaymentSuccess} className="w-full bg-green-50 text-green-700 py-4 rounded-xl font-black border border-green-200">🚀 Success Bypass</button>}
             </div>
             <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">← Back to Form</button>
@@ -260,7 +291,12 @@ const Builder = () => {
     <Layout>
       <div className="max-w-4xl mx-auto py-16 px-4">
         <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8 hover:underline">← Change Package</button>
-        <h1 className="text-4xl font-black text-center mb-16 tracking-tight">Enter Your Details</h1>
+        <div className="text-center mb-16">
+          <span className="inline-block bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
+            Current Plan: {PRICING[selectedPackage].label}
+          </span>
+          <h1 className="text-4xl font-black tracking-tight">Enter Your Details</h1>
+        </div>
         <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
       </div>
     </Layout>
@@ -288,7 +324,7 @@ const FAQ = () => (
       <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Frequently Asked Questions</h1>
       <div className="space-y-6">
         {[
-          { q: "How many resumes can I generate?", a: "Each payment is linked to one email address and allows unlimited edits/regeneration for that specific user's details within the session." },
+          { q: "How many resumes can I generate?", a: "Each payment allows up to 2 downloads for the same Email + Phone combination. You can edit your details between downloads." },
           { q: "Is it ATS-friendly?", a: "Yes, our formats are rigorously tested for Indian hiring systems." },
           { q: "Can I upgrade later?", a: "Currently, each package is separate. We recommend the Job Ready Pack for the best value." }
         ].map((item, i) => (
