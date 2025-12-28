@@ -23,13 +23,13 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
   return (
     <div className="space-y-12 pb-24 print-container">
       {/* Visual Pro-Tip for Clean PDF */}
-      <div className="max-w-[210mm] mx-auto bg-blue-50 border border-blue-100 p-4 rounded-2xl no-print flex items-start gap-4 shadow-sm animate-fadeIn">
+      <div className="max-w-[210mm] mx-auto bg-blue-50 border border-blue-100 p-5 rounded-2xl no-print flex items-start gap-4 shadow-sm animate-fadeIn">
         <span className="text-2xl">💡</span>
         <div>
-          <h4 className="font-black text-blue-900 text-sm">Pro Tip for a Clean PDF:</h4>
-          <p className="text-blue-700 text-xs mt-1 leading-relaxed">
+          <h4 className="font-black text-blue-900 text-sm">How to remove URLs from PDF:</h4>
+          <p className="text-blue-700 text-xs mt-1 leading-relaxed font-medium">
             In the Print window, click <strong>"More Settings"</strong> and make sure 
-            <strong> "Headers and Footers"</strong> is <u>Unchecked</u>. This removes the URL and Date from your final document.
+            <strong> "Headers and Footers"</strong> is <u>Unchecked</u>. This ensures your resume looks 100% professional.
           </p>
         </div>
       </div>
