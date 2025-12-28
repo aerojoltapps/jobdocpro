@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { UserData, DocumentResult, PackageType } from '../types';
 
@@ -22,13 +21,21 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
   const isPremium = packageType === PackageType.JOB_READY_PACK;
 
   return (
-    <div className="space-y-12 pb-24">
-      <div className="flex justify-center no-print">
-        <p className="text-gray-400 text-sm font-medium italic">Filename will save as: {user.fullName}.pdf</p>
+    <div className="space-y-12 pb-24 print-container">
+      {/* Visual Pro-Tip for Clean PDF */}
+      <div className="max-w-[210mm] mx-auto bg-blue-50 border border-blue-100 p-4 rounded-2xl no-print flex items-start gap-4 shadow-sm animate-fadeIn">
+        <span className="text-2xl">💡</span>
+        <div>
+          <h4 className="font-black text-blue-900 text-sm">Pro Tip for a Clean PDF:</h4>
+          <p className="text-blue-700 text-xs mt-1 leading-relaxed">
+            In the Print window, click <strong>"More Settings"</strong> and make sure 
+            <strong> "Headers and Footers"</strong> is <u>Unchecked</u>. This removes the URL and Date from your final document.
+          </p>
+        </div>
       </div>
 
       {/* Page 1: Resume */}
-      <section className="bg-white p-12 shadow-2xl border border-gray-100 max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 relative print:shadow-none print:border-none">
+      <section className="bg-white p-12 shadow-2xl border border-gray-100 max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 relative print:shadow-none print:border-none print:p-0">
         <div className="text-center mb-8 border-b-2 border-gray-900 pb-6">
           <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">{user.fullName}</h1>
           <div className="flex justify-center gap-4 text-[13px] font-bold text-gray-600">
@@ -81,7 +88,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
 
       {/* Page 2: Cover Letter */}
       {hasCoverLetter && (
-        <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
+        <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none print:p-0 page-break">
           <div className="no-print flex items-center gap-3 mb-8">
             <span className="bg-blue-100 p-2 rounded text-xl">📧</span>
             <h2 className="text-2xl font-black">Cover Letter</h2>
@@ -103,7 +110,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
 
       {/* Page 3: LinkedIn + Premium Insights */}
       {hasLinkedIn && (
-        <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
+        <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none print:p-0 page-break">
           <div className="no-print flex items-center gap-3 mb-8">
             <span className="bg-blue-600 text-white p-2 rounded text-xl font-bold">in</span>
             <h2 className="text-2xl font-black">LinkedIn Profile</h2>
@@ -161,8 +168,8 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
       )}
 
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 no-print">
-        <button onClick={() => window.print()} className="bg-blue-600 text-white px-12 py-5 rounded-full font-black text-xl shadow-2xl hover:bg-blue-700 transition transform hover:scale-105 active:scale-95">
-          Download PDF Bundle
+        <button onClick={() => window.print()} className="bg-blue-600 text-white px-12 py-5 rounded-full font-black text-xl shadow-2xl hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 flex items-center gap-3">
+          <span>⬇️</span> Download PDF Bundle
         </button>
       </div>
     </div>

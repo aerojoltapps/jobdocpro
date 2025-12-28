@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,11 +17,26 @@
     ></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
+        
         @media print {
+            /* This suppresses browser headers/footers (URL, Date) */
+            @page { 
+                margin: 0; 
+                size: auto;
+            }
+            body { 
+                margin: 0;
+                background: white;
+            }
+            /* Add safe padding back to the content so it doesn't touch the paper edge */
+            .print-container {
+                padding: 1.5cm;
+            }
             .no-print { display: none !important; }
             .print-only { display: block !important; }
             .page-break { page-break-before: always; }
         }
+
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
