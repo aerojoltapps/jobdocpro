@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -8,7 +9,13 @@ import { UserData, DocumentResult, PackageType } from './types';
 import { generateJobDocuments } from './services/geminiService';
 import { PRICING } from './constants';
 
-// Reusable Package Card Component for consistency
+const SAMPLE_DATA = [
+  { role: "Software Developer", img: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=800", tag: "Tech Choice" },
+  { role: "Sales Manager", img: "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?auto=format&fit=crop&q=80&w=800", tag: "Growth Focus" },
+  { role: "Administrative Assistant", img: "https://images.unsplash.com/photo-1549923746-c502d488b3ea?auto=format&fit=crop&q=80&w=800", tag: "Corporate Ready" }
+];
+
+// Reusable Package Card Component
 const PackageCard = ({ 
   pkgKey, 
   data, 
@@ -56,6 +63,8 @@ const PackageCard = ({
 };
 
 const Home = () => {
+  const [previewSample, setPreviewSample] = useState<typeof SAMPLE_DATA[0] | null>(null);
+
   return (
     <Layout>
       <div className="overflow-hidden">
@@ -72,18 +81,24 @@ const Home = () => {
                   Recruiter-ready documents without any AI knowledge or prompt engineering.
                 </p>
                 <div className="mt-10 flex flex-col sm:flex-row sm:justify-center lg:justify-start gap-4">
-                  <Link to="/builder" className="px-10 py-5 bg-blue-600 text-white text-xl font-black rounded-2xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200 text-center">
+                  <Link 
+                    to="/builder"
+                    className="px-10 py-5 bg-blue-600 text-white text-xl font-black rounded-2xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200 text-center"
+                  >
                     Build My Resume Now
                   </Link>
-                  <Link to="/samples" className="px-10 py-5 bg-gray-100 text-gray-900 text-xl font-bold rounded-2xl hover:bg-gray-200 transition text-center">
+                  <Link 
+                    to="/samples"
+                    className="px-10 py-5 bg-gray-100 text-gray-900 text-xl font-bold rounded-2xl hover:bg-gray-200 transition text-center"
+                  >
                     View Samples
                   </Link>
                 </div>
               </div>
               <div className="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-6 lg:flex lg:items-center">
-                 <div className="relative group">
-                   <div className="absolute -inset-4 bg-blue-600/5 rounded-[2rem] blur-2xl"></div>
-                   <img src="https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=800" alt="Resume Preview" className="relative rounded-2xl shadow-2xl border-4 border-white" />
+                 <div className="relative group cursor-pointer" onClick={() => setPreviewSample(SAMPLE_DATA[0])}>
+                   <div className="absolute -inset-4 bg-blue-600/5 rounded-[2rem] blur-2xl group-hover:bg-blue-600/10 transition"></div>
+                   <img src={SAMPLE_DATA[0].img} alt="Resume Preview" className="relative rounded-2xl shadow-2xl border-4 border-white" />
                  </div>
               </div>
             </div>
@@ -135,6 +150,7 @@ const Builder = () => {
   const [useTestBypass, setUseTestBypass] = useState(false);
 
   // 1 Resume = 1 Payment Enforcement
+  // We track payment per email per session
   const [paidEmail, setPaidEmail] = useState(sessionStorage.getItem('paid_email') || '');
   const isPaid = userData?.email === paidEmail && paidEmail !== '';
 
@@ -144,8 +160,10 @@ const Builder = () => {
 
   const onFormSubmit = (data: UserData) => {
     setUserData(data);
+    // If already paid for this email, regenerate immediately
     if (data.email === paidEmail) {
-      runGeneration(data);
+      setIsGenerating(true);
+      setTimeout(() => runGeneration(data), 200);
     } else {
       setIsCheckout(true);
       window.scrollTo(0, 0);
@@ -163,7 +181,7 @@ const Builder = () => {
 
   const runGeneration = async (data: UserData) => {
     setIsGenerating(true);
-    setResult(null); // Clear previous result to show fresh generation
+    setResult(null); // Clear previous result to force UI update
     try {
       const generated = await generateJobDocuments(data);
       setResult(generated);
@@ -196,7 +214,7 @@ const Builder = () => {
         <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
            <h2 className="text-3xl font-black mb-4 tracking-tight">Crafting Your Career Documents...</h2>
-           <p className="text-gray-500 font-medium">Analyzing your profile for the Indian job market.</p>
+           <p className="text-gray-500 font-medium">Using recruiter-approved algorithms for the Indian market.</p>
         </div>
       </Layout>
     );
@@ -207,7 +225,7 @@ const Builder = () => {
       <Layout>
         <div className="max-w-4xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Details</button>
             <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Session Secured</div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
@@ -228,10 +246,10 @@ const Builder = () => {
             </div>
             <div className="max-w-sm mx-auto space-y-6">
               <PayPalBtn amount={PRICING[selectedPackage].price} onConfirm={handlePaymentSuccess} />
-              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-30">Test Bypass</button>
+              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-50">Test Bypass</button>
               {useTestBypass && <button onClick={handlePaymentSuccess} className="w-full bg-green-50 text-green-700 py-4 rounded-xl font-black border border-green-200">🚀 Success Bypass</button>}
             </div>
-            <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600 transition">← Back to Form</button>
+            <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">← Back to Form</button>
           </div>
         </div>
       </Layout>
@@ -254,6 +272,7 @@ const Pricing = () => (
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Transparent Pricing</h1>
       <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">One payment per document. Choose your level of career boost.</p>
+      
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
           <PackageCard key={key} pkgKey={key} data={val} />
