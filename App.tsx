@@ -198,31 +198,47 @@ const Builder = () => {
     if (!userData || !selectedPackage) return;
     
     if (!(window as any).Razorpay) {
-      alert("Razorpay SDK not loaded.");
+      alert("Razorpay payment gateway is not ready yet. Please try again in a moment.");
+      return;
+    }
+
+    if (RAZORPAY_KEY_ID === 'rzp_test_YOUR_KEY_HERE') {
+      alert("System Configuration Error: Please update the Razorpay Key ID in constants.ts");
       return;
     }
 
     const amount = PRICING[selectedPackage].price;
     const options = {
       key: RAZORPAY_KEY_ID,
-      amount: amount * 100,
+      amount: amount * 100, // paise
       currency: "INR",
       name: "JobDocPro",
-      description: `Unlock ${PRICING[selectedPackage].label}`,
+      description: `Unlock Full Resume Pack - ${PRICING[selectedPackage].label}`,
+      image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=100&h=100&fit=crop",
       handler: function(response: any) {
         if (response.razorpay_payment_id) {
           handlePaymentSuccess();
         }
       },
-      prefill: { name: userData.fullName, email: userData.email, contact: userData.phone },
-      theme: { color: "#2563eb" }
+      prefill: {
+        name: userData.fullName,
+        email: userData.email,
+        contact: userData.phone
+      },
+      theme: {
+        color: "#2563eb"
+      }
     };
 
     try {
       const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        alert("Payment failed: " + response.error.description);
+      });
       rzp.open();
     } catch (err) {
-      alert("Something went wrong with Razorpay.");
+      console.error("Razorpay error:", err);
+      alert("Something went wrong with the payment portal. Please ensure your Key ID is correct.");
     }
   };
 
@@ -233,10 +249,9 @@ const Builder = () => {
     try {
       const generated = await generateJobDocuments(data);
       setResult(generated);
-      // We don't increment usage here because it's a preview
       window.scrollTo(0, 0);
     } catch (e: any) {
-      alert(e.message || "Generation error.");
+      alert(e.message || "Something went wrong while generating your resume.");
     } finally {
       setIsGenerating(false);
     }
@@ -245,13 +260,12 @@ const Builder = () => {
   const handlePaymentSuccess = async () => {
     if (userData) {
       const id = getIdentifier(userData.email, userData.phone);
-      setUsageMap(prev => ({ ...prev, [id]: 0 }));
+      setUsageMap(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
       if (!paidIdentifiers.includes(id)) {
         setPaidIdentifiers(prev => [...prev, id]);
       }
       setIsCheckout(false);
-      // After payment, we count the first usage
-      setUsageMap(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+      window.scrollTo(0, 0);
     }
   };
 
@@ -312,10 +326,9 @@ const Builder = () => {
           />
         </div>
 
-        {/* Checkout Modal Overlay */}
         {isCheckout && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center">
+            <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center" onClick={e => e.stopPropagation()}>
               <h2 className="text-4xl font-black mb-4">Ready to Apply?</h2>
               <p className="text-gray-500 mb-8 font-medium">Unlock full PDF export, clean formatting, and job-specific keywords.</p>
               <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
@@ -341,7 +354,7 @@ const Builder = () => {
       <div className="max-w-4xl mx-auto py-16 px-4">
         <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8 hover:underline">← Change Package</button>
         <div className="text-center mb-16">
-          <span className="inline-block bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
+          <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
             Selected: {PRICING[selectedPackage].label}
           </span>
           <h1 className="text-4xl font-black tracking-tight">Tell us about yourself</h1>
