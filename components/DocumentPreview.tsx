@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { UserData, DocumentResult, PackageType } from '../types';
 
@@ -8,7 +9,6 @@ interface Props {
 }
 
 const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
-  // Sync document title to user name for dynamic PDF filename
   useEffect(() => {
     const originalTitle = document.title;
     document.title = `${user.fullName} - Career Documents`;
@@ -19,9 +19,10 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
 
   const hasCoverLetter = packageType === PackageType.RESUME_COVER || packageType === PackageType.JOB_READY_PACK;
   const hasLinkedIn = packageType === PackageType.JOB_READY_PACK;
+  const isPremium = packageType === PackageType.JOB_READY_PACK;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 pb-24">
       <div className="flex justify-center no-print">
         <p className="text-gray-400 text-sm font-medium italic">Filename will save as: {user.fullName}.pdf</p>
       </div>
@@ -78,7 +79,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
         </div>
       </section>
 
-      {/* Page 2: Cover Letter (Printable) */}
+      {/* Page 2: Cover Letter */}
       {hasCoverLetter && (
         <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
           <div className="no-print flex items-center gap-3 mb-8">
@@ -100,7 +101,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
         </section>
       )}
 
-      {/* Page 3: LinkedIn (Printable) */}
+      {/* Page 3: LinkedIn + Premium Insights */}
       {hasLinkedIn && (
         <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
           <div className="no-print flex items-center gap-3 mb-8">
@@ -117,7 +118,46 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl text-sm whitespace-pre-wrap print:bg-white">{result.linkedinSummary}</div>
             </div>
           </div>
+
+          {isPremium && (
+            <div className="mt-16 pt-16 border-t border-gray-100">
+              <h3 className="text-xl font-black mb-6 flex items-center gap-2">
+                <span className="text-yellow-500">⭐</span> Premium Recruiter Insights
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 print:bg-white">
+                  <h4 className="text-[10px] font-black uppercase text-blue-600 mb-3 tracking-widest">ATS Keyword Mapping</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {result.keywordMapping?.map((k, i) => (
+                      <span key={i} className="text-xs bg-white border border-blue-200 px-2 py-1 rounded font-bold text-blue-800">{k}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-green-50 p-6 rounded-3xl border border-green-100 print:bg-white">
+                  <h4 className="text-[10px] font-black uppercase text-green-600 mb-3 tracking-widest">ATS Score Explanation</h4>
+                  <p className="text-xs text-green-900 font-medium leading-relaxed">{result.atsExplanation}</p>
+                </div>
+              </div>
+              <div className="mt-8 p-6 bg-gray-50 rounded-3xl border border-gray-200 print:bg-white">
+                <h4 className="text-[10px] font-black uppercase text-gray-500 mb-3 tracking-widest">Recruiter's Advice</h4>
+                <p className="text-xs text-gray-700 italic font-medium">"{result.recruiterInsights}"</p>
+              </div>
+            </div>
+          )}
         </section>
+      )}
+
+      {/* Upsell Section */}
+      {isPremium && (
+        <div className="max-w-[210mm] mx-auto no-print">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-8 rounded-[2rem] text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="text-2xl font-black mb-2">Want a Human Review?</h3>
+              <p className="text-blue-100 text-sm">Get your AI-generated resume reviewed by an expert Indian recruiter for just ₹1,999.</p>
+            </div>
+            <a href="mailto:aerojoltapps@gmail.com?subject=Resume Review Request" className="bg-white text-blue-600 px-8 py-3 rounded-xl font-bold hover:bg-gray-100 transition whitespace-nowrap">Book Human Review</a>
+          </div>
+        </div>
       )}
 
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 no-print">

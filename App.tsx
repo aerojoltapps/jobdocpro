@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -13,6 +14,53 @@ const SAMPLE_DATA = [
   { role: "Sales Manager", img: "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?auto=format&fit=crop&q=80&w=800", tag: "Growth Focus" },
   { role: "Administrative Assistant", img: "https://images.unsplash.com/photo-1549923746-c502d488b3ea?auto=format&fit=crop&q=80&w=800", tag: "Corporate Ready" }
 ];
+
+// Reusable Package Card Component
+const PackageCard = ({ 
+  pkgKey, 
+  data, 
+  onSelect, 
+  isSelected = false 
+}: { 
+  pkgKey: string, 
+  data: any, 
+  onSelect?: (key: PackageType) => void,
+  isSelected?: boolean 
+}) => {
+  const isFeatured = pkgKey === PackageType.JOB_READY_PACK;
+  
+  return (
+    <div className={`bg-white p-10 rounded-[2.5rem] shadow-sm border flex flex-col hover:shadow-xl transition-all duration-300 ${isFeatured ? 'ring-4 ring-blue-600 relative border-transparent' : 'border-gray-100'} ${isSelected ? 'border-blue-600 ring-2' : ''}`}>
+      {isFeatured && (
+        <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">Most Popular</span>
+      )}
+      <h3 className="text-xl font-bold mb-4">{data.label}</h3>
+      <div className="text-5xl font-black mb-8">₹{data.price}</div>
+      <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
+        {data.features.map((f: string, i: number) => (
+          <li key={i} className="flex items-start gap-2">
+            <span className="text-blue-600 font-bold">✓</span> {f}
+          </li>
+        ))}
+      </ul>
+      {onSelect ? (
+        <button 
+          onClick={() => onSelect(pkgKey as PackageType)} 
+          className={`w-full py-4 rounded-xl font-bold text-center transition shadow-md active:scale-95 ${isFeatured ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
+        >
+          {isSelected ? 'Package Selected' : 'Select Plan'}
+        </button>
+      ) : (
+        <Link 
+          to={`/builder?package=${pkgKey}`} 
+          className={`w-full py-4 rounded-xl font-bold text-center transition shadow-md active:scale-95 ${isFeatured ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
+        >
+          Get Started
+        </Link>
+      )}
+    </div>
+  );
+};
 
 const Home = () => {
   const [previewSample, setPreviewSample] = useState<typeof SAMPLE_DATA[0] | null>(null);
@@ -46,80 +94,16 @@ const Home = () => {
                     View Samples
                   </Link>
                 </div>
-                <div className="mt-8 flex items-center sm:justify-center lg:justify-start gap-3">
-                  <div className="flex -space-x-2">
-                    {[1,2,3,4].map(i => (
-                      <img key={i} src={`https://i.pravatar.cc/100?img=${i+10}`} className="w-8 h-8 rounded-full border-2 border-white" />
-                    ))}
-                  </div>
-                  <p className="text-sm text-gray-500 font-medium">Join <span className="text-blue-600 font-bold">1,000+ job seekers</span> this month</p>
-                </div>
               </div>
               <div className="mt-12 relative sm:max-w-lg sm:mx-auto lg:mt-0 lg:max-w-none lg:mx-0 lg:col-span-6 lg:flex lg:items-center">
                  <div className="relative group cursor-pointer" onClick={() => setPreviewSample(SAMPLE_DATA[0])}>
                    <div className="absolute -inset-4 bg-blue-600/5 rounded-[2rem] blur-2xl group-hover:bg-blue-600/10 transition"></div>
-                   <img src={SAMPLE_DATA[0].img} alt="Resume Preview" className="relative rounded-2xl shadow-2xl rotate-2 group-hover:rotate-0 transition-transform duration-500 border-4 border-white" />
-                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="bg-white px-6 py-3 rounded-xl font-bold text-blue-600 shadow-2xl">Click to Preview</span>
-                   </div>
+                   <img src={SAMPLE_DATA[0].img} alt="Resume Preview" className="relative rounded-2xl shadow-2xl border-4 border-white" />
                  </div>
               </div>
             </div>
           </div>
         </section>
-
-        <section className="bg-gray-50 py-24">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row justify-between items-center md:items-end mb-16 gap-4 text-center md:text-left">
-              <div>
-                <h2 className="text-4xl font-black text-gray-900 tracking-tight">Industry Samples</h2>
-                <p className="text-gray-500 mt-3 text-lg">See the high-quality documents we build for every role.</p>
-              </div>
-              <Link to="/samples" className="text-blue-600 font-bold hover:underline flex items-center gap-2 text-lg">
-                View All Samples <span className="text-xl">→</span>
-              </Link>
-            </div>
-            <div className="grid md:grid-cols-3 gap-10">
-              {SAMPLE_DATA.map((item, i) => (
-                <div 
-                  key={i} 
-                  onClick={() => setPreviewSample(item)}
-                  className="bg-white rounded-3xl shadow-sm hover:shadow-2xl overflow-hidden border border-gray-100 group cursor-pointer transition-all duration-300"
-                >
-                   <div className="relative h-64 overflow-hidden">
-                      <img src={item.img} className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-600">
-                        {item.tag}
-                      </div>
-                   </div>
-                   <div className="p-6 flex justify-between items-center">
-                      <h3 className="font-bold text-xl text-gray-900">{item.role}</h3>
-                      <span className="text-blue-600 group-hover:translate-x-1 transition-transform">→</span>
-                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-        
-        {previewSample && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-4 animate-fadeIn" onClick={() => setPreviewSample(null)}>
-            <div className="relative max-w-4xl w-full bg-white rounded-[2rem] overflow-hidden animate-scaleIn shadow-2xl" onClick={e => e.stopPropagation()}>
-              <button onClick={() => setPreviewSample(null)} className="absolute top-6 right-6 bg-black/50 hover:bg-black text-white w-12 h-12 rounded-full flex items-center justify-center z-10 transition shadow-xl">✕</button>
-              <div className="flex flex-col md:flex-row max-h-[90vh]">
-                <div className="md:w-1/2 overflow-y-auto bg-gray-100">
-                  <img src={previewSample.img} className="w-full h-auto" alt="Full Preview" />
-                </div>
-                <div className="md:w-1/2 p-12 flex flex-col justify-center bg-white">
-                  <span className="text-blue-600 font-black uppercase tracking-[3px] text-xs mb-4">{previewSample.tag}</span>
-                  <h2 className="text-4xl font-black mb-6 tracking-tight text-gray-900">{previewSample.role}</h2>
-                  <p className="text-gray-500 mb-10 leading-relaxed text-lg">Recruiter-approved template designed for impact in the Indian job market.</p>
-                  <Link to="/builder" className="bg-blue-600 text-white text-center py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition shadow-xl shadow-blue-100 active:scale-95">Create My Resume Now</Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </Layout>
   );
@@ -162,25 +146,24 @@ const Builder = () => {
   });
   const [result, setResult] = useState<DocumentResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPaid, setIsPaid] = useState(sessionStorage.getItem('jdp_paid') === 'true');
   const [isCheckout, setIsCheckout] = useState(false);
   const [useTestBypass, setUseTestBypass] = useState(false);
+
+  // 1 Resume = 1 Payment Enforcement
+  // We track payment per email per session
+  const [paidEmail, setPaidEmail] = useState(sessionStorage.getItem('paid_email') || '');
+  const isPaid = userData?.email === paidEmail && paidEmail !== '';
 
   useEffect(() => {
     if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
   }, [userData]);
 
-  const getPrice = () => {
-    if (!selectedPackage) return 0;
-    return PRICING[selectedPackage].price;
-  };
-
   const onFormSubmit = (data: UserData) => {
     setUserData(data);
-    if (isPaid) {
-      // Force immediate re-render to show loading state
+    // If already paid for this email, regenerate immediately
+    if (data.email === paidEmail) {
       setIsGenerating(true);
-      setTimeout(() => runGeneration(), 100);
+      setTimeout(() => runGeneration(data), 200);
     } else {
       setIsCheckout(true);
       window.scrollTo(0, 0);
@@ -188,17 +171,19 @@ const Builder = () => {
   };
 
   const handlePaymentSuccess = async () => {
-    setIsPaid(true);
-    setIsCheckout(false);
-    sessionStorage.setItem('jdp_paid', 'true');
-    await runGeneration();
+    if (userData) {
+      sessionStorage.setItem('paid_email', userData.email);
+      setPaidEmail(userData.email);
+      setIsCheckout(false);
+      await runGeneration(userData);
+    }
   };
 
-  const runGeneration = async () => {
-    if (!userData) return;
+  const runGeneration = async (data: UserData) => {
     setIsGenerating(true);
+    setResult(null); // Clear previous result to force UI update
     try {
-      const generated = await generateJobDocuments(userData);
+      const generated = await generateJobDocuments(data);
       setResult(generated);
       window.scrollTo(0, 0);
     } catch (e: any) {
@@ -211,20 +196,11 @@ const Builder = () => {
   if (!selectedPackage) {
     return (
       <Layout>
-        <div className="max-w-7xl mx-auto py-16 px-4">
-          <h1 className="text-4xl font-black text-center mb-12">Select Your Package</h1>
+        <div className="max-w-7xl mx-auto py-16 px-4 text-center">
+          <h1 className="text-4xl font-black mb-12">Select Your Package</h1>
           <div className="grid md:grid-cols-3 gap-8">
             {Object.entries(PRICING).map(([key, val]) => (
-              <div key={key} className={`bg-white p-8 rounded-3xl shadow-sm border flex flex-col items-center hover:border-blue-300 transition-all ${key === PackageType.JOB_READY_PACK ? 'ring-2 ring-blue-600' : 'border-gray-100'}`}>
-                <h3 className="text-xl font-bold mb-4">{val.label}</h3>
-                <div className="text-4xl font-black mb-8">₹{val.price}</div>
-                <button 
-                  onClick={() => setSelectedPackage(key as PackageType)} 
-                  className={`w-full py-4 rounded-xl font-bold transition ${key === PackageType.JOB_READY_PACK ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
-                >
-                  Select Package
-                </button>
-              </div>
+              <PackageCard key={key} pkgKey={key} data={val} onSelect={setSelectedPackage} />
             ))}
           </div>
         </div>
@@ -238,7 +214,7 @@ const Builder = () => {
         <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
            <h2 className="text-3xl font-black mb-4 tracking-tight">Crafting Your Career Documents...</h2>
-           <p className="text-gray-500 font-medium">Our AI is analyzing your profile for the Indian market.</p>
+           <p className="text-gray-500 font-medium">Using recruiter-approved algorithms for the Indian market.</p>
         </div>
       </Layout>
     );
@@ -249,8 +225,8 @@ const Builder = () => {
       <Layout>
         <div className="max-w-4xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => { setResult(null); }} className="text-blue-600 font-bold hover:underline">← Back to Details</button>
-            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Order Active</div>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Details</button>
+            <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">✨ Session Secured</div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
         </div>
@@ -264,13 +240,13 @@ const Builder = () => {
         <div className="max-w-2xl mx-auto py-20 px-4 text-center">
           <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 animate-fadeIn">
             <h2 className="text-4xl font-black mb-4">Complete Payment</h2>
-            <p className="text-gray-500 mb-8">Unlock your {selectedPackage.replace('_', ' ')} documents.</p>
+            <p className="text-gray-500 mb-8 font-medium">One payment per resume (Locked to {userData.email})</p>
             <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
-               <div className="text-7xl font-black tracking-tighter">₹{getPrice()}</div>
+               <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
             </div>
             <div className="max-w-sm mx-auto space-y-6">
-              <PayPalBtn amount={getPrice()} onConfirm={handlePaymentSuccess} />
-              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-50 hover:opacity-100">Bypass for testing</button>
+              <PayPalBtn amount={PRICING[selectedPackage].price} onConfirm={handlePaymentSuccess} />
+              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-50">Test Bypass</button>
               {useTestBypass && <button onClick={handlePaymentSuccess} className="w-full bg-green-50 text-green-700 py-4 rounded-xl font-black border border-green-200">🚀 Success Bypass</button>}
             </div>
             <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">← Back to Form</button>
@@ -295,28 +271,11 @@ const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, Transparent Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Choose the package that fits your job search needs.</p>
+      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">One payment per document. Choose your level of career boost.</p>
       
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
-          <div key={key} className={`bg-white p-10 rounded-[2.5rem] shadow-sm border flex flex-col hover:shadow-xl transition-all duration-300 ${key === PackageType.JOB_READY_PACK ? 'ring-4 ring-blue-600 relative border-transparent' : 'border-gray-100'}`}>
-            {key === PackageType.JOB_READY_PACK && (
-              <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-widest">Most Popular</span>
-            )}
-            <h3 className="text-xl font-bold mb-4">{val.label}</h3>
-            <div className="text-5xl font-black mb-8">₹{val.price}</div>
-            <ul className="text-left space-y-4 mb-10 flex-grow text-sm text-gray-600 font-medium">
-              {key === PackageType.RESUME_ONLY && <><li>✓ ATS-Friendly Resume</li><li>✓ Professional Summary</li><li>✓ Instant PDF Access</li></>}
-              {key === PackageType.RESUME_COVER && <><li>✓ Everything in Resume Only</li><li>✓ Professional Cover Letter</li><li>✓ AI-Guided Content</li></>}
-              {key === PackageType.JOB_READY_PACK && <><li>✓ Everything in Resume + Cover</li><li>✓ LinkedIn Optimization</li><li>✓ Priority Processing</li></>}
-            </ul>
-            <Link 
-              to={`/builder?package=${key}`} 
-              className={`w-full py-4 rounded-xl font-bold text-center transition shadow-md active:scale-95 ${key === PackageType.JOB_READY_PACK ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'}`}
-            >
-              Get Started
-            </Link>
-          </div>
+          <PackageCard key={key} pkgKey={key} data={val} />
         ))}
       </div>
     </div>
@@ -326,12 +285,12 @@ const Pricing = () => (
 const FAQ = () => (
   <Layout>
     <div className="max-w-3xl mx-auto py-24 px-4">
-      <h1 className="text-5xl font-black text-center mb-16">FAQ</h1>
+      <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Frequently Asked Questions</h1>
       <div className="space-y-6">
         {[
-          { q: "Is it ATS-friendly?", a: "Yes, we use recruiter-tested layouts that parse perfectly in all major ATS systems used in India." },
-          { q: "How to save as PDF?", a: "After checkout, click the Download button. In the print dialog, select 'Save as PDF' as your destination." },
-          { q: "What if I want to edit later?", a: "Your details are saved in your browser locally. You can come back and edit your details anytime on the same device." }
+          { q: "How many resumes can I generate?", a: "Each payment is linked to one email address and allows unlimited edits/regeneration for that specific user's details within the session." },
+          { q: "Is it ATS-friendly?", a: "Yes, our formats are rigorously tested for Indian hiring systems." },
+          { q: "Can I upgrade later?", a: "Currently, each package is separate. We recommend the Job Ready Pack for the best value." }
         ].map((item, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="text-xl font-black mb-2 leading-tight">{item.q}</h3>

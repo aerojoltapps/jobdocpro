@@ -1,10 +1,29 @@
 
-import { JobRole } from './types';
+import { JobRole, PackageType } from './types';
 
 export const PRICING = {
-  RESUME_ONLY: { price: 199, label: 'Resume Only' },
-  RESUME_COVER: { price: 299, label: 'Resume + Cover Letter' },
-  JOB_READY_PACK: { price: 499, label: 'Job Ready Pack (All-in-One)' },
+  [PackageType.RESUME_ONLY]: { 
+    price: 199, 
+    label: 'Resume Only',
+    features: ['ATS-Friendly Resume', 'Professional Summary', 'PDF Format']
+  },
+  [PackageType.RESUME_COVER]: { 
+    price: 299, 
+    label: 'Resume + Cover Letter',
+    features: ['Everything in Resume Only', 'Role-Specific Cover Letter', 'Formal Language Sync']
+  },
+  [PackageType.JOB_READY_PACK]: { 
+    price: 499, 
+    label: 'Job Ready Pack (All-in-One)',
+    features: [
+      'Everything in Resume + Cover',
+      'LinkedIn Optimization',
+      'Job-Specific Keyword Mapping',
+      'Recruiter-Style Bullet Rewriting',
+      'ATS Score Explanation',
+      'Resume Review Upsell'
+    ]
+  },
 };
 
 export const ROLE_TEMPLATES = {

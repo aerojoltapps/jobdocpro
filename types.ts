@@ -35,6 +35,10 @@ export interface DocumentResult {
   coverLetter: string;
   linkedinSummary: string;
   linkedinHeadline: string;
+  // Premium Features
+  keywordMapping?: string[];
+  atsExplanation?: string;
+  recruiterInsights?: string;
 }
 
 export enum PackageType {

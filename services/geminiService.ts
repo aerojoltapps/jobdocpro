@@ -1,13 +1,12 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserData, DocumentResult } from "../types";
 
 export const generateJobDocuments = async (userData: UserData): Promise<DocumentResult> => {
-  // Initialize AI client inside the function to ensure the latest API key is used
-  // Note: process.env.API_KEY is injected by Vite at build time or handled by the environment
   const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    throw new Error("API_KEY is missing. Please set it in your environment variables.");
+    throw new Error("API_KEY is missing.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -29,15 +28,17 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
     3. A formal cover letter addressed to "Hiring Manager".
     4. A LinkedIn Profile Summary (About section).
     5. A catchy LinkedIn Headline.
+    6. (Premium) A list of 10-12 Job-Specific Keywords to include.
+    7. (Premium) A 2-sentence ATS Score Explanation (why this format works for ATS).
+    8. (Premium) 2 short Recruiter Insights on how to pitch this profile.
     
-    Language should be professional but simple (clear English for Indian context).
-    Return strictly JSON.
+    Language should be professional but simple. Return strictly JSON.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt, // Simplified contents format
+      contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -53,23 +54,24 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
             },
             coverLetter: { type: Type.STRING },
             linkedinSummary: { type: Type.STRING },
-            linkedinHeadline: { type: Type.STRING }
+            linkedinHeadline: { type: Type.STRING },
+            keywordMapping: { type: Type.ARRAY, items: { type: Type.STRING } },
+            atsExplanation: { type: Type.STRING },
+            recruiterInsights: { type: Type.STRING }
           },
-          required: ["resumeSummary", "experienceBullets", "coverLetter", "linkedinSummary", "linkedinHeadline"]
+          required: ["resumeSummary", "experienceBullets", "coverLetter", "linkedinSummary", "linkedinHeadline", "keywordMapping", "atsExplanation", "recruiterInsights"]
         }
       }
     });
 
     const text = response.text;
     if (!text) {
-      throw new Error("The AI model returned an empty response.");
+      throw new Error("Empty AI response.");
     }
     
     return JSON.parse(text) as DocumentResult;
   } catch (e: any) {
-    console.error("Gemini Service Detailed Error:", e);
-    // Throw a more descriptive error message
-    const errorMessage = e.message || "Unknown API Error";
-    throw new Error(`Generation Failed: ${errorMessage}`);
+    console.error("Gemini Service Error:", e);
+    throw new Error(`Generation Failed: ${e.message}`);
   }
 };
