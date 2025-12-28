@@ -206,41 +206,6 @@ const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => voi
   );
 };
 
-// Payment Overlay Simulation Component
-const PaymentOverlay = ({ onConfirm, onCancel, amount }: { onConfirm: () => void, onCancel: () => void, amount: number }) => {
-  const [useTestBypass, setUseTestBypass] = useState(false);
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-[2.5rem] overflow-hidden shadow-2xl animate-scaleIn border border-white/20">
-        <div className="bg-blue-600 p-8 text-white">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-2xl font-black">Checkout</h3>
-              <p className="text-blue-100 text-[10px] uppercase tracking-widest font-black mt-1">JobDocPro Secure Pay</p>
-            </div>
-            <button onClick={onCancel} className="text-3xl opacity-50 hover:opacity-100">✕</button>
-          </div>
-        </div>
-        <div className="p-10">
-          <div className="flex justify-between mb-8 pb-8 border-b border-gray-100 items-baseline">
-             <span className="text-gray-500 font-bold">Document Access</span>
-             <span className="text-4xl font-black text-gray-900 tracking-tighter">₹{amount}</span>
-          </div>
-          <PayPalBtn amount={amount} onConfirm={onConfirm} />
-          <div className="mt-6 pt-6 border-t border-dashed border-gray-200">
-            <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase tracking-widest font-bold">
-              {useTestBypass ? 'Hide' : 'Show Success Bypass'}
-            </button>
-            {useTestBypass && (
-              <button onClick={onConfirm} className="w-full mt-4 bg-green-50 text-green-700 py-4 rounded-xl border border-green-200 text-[11px] font-black uppercase">🚀 Success Bypass</button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Builder Page Component
 const Builder = () => {
   const [searchParams] = useSearchParams();
@@ -254,7 +219,7 @@ const Builder = () => {
   const [result, setResult] = useState<DocumentResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [isPaid, setIsPaid] = useState(sessionStorage.getItem('nr_paid') === 'true');
-  const [showPayment, setShowPayment] = useState(false);
+  const [useTestBypass, setUseTestBypass] = useState(false);
 
   // Sync draft to local storage
   useEffect(() => {
@@ -271,7 +236,7 @@ const Builder = () => {
   };
 
   const handleSubmit = async (data: UserData) => {
-    setUserData(data); // Save the latest data immediately
+    setUserData(data); 
     setLoading(true);
     try {
       const generated = await generateJobDocuments(data);
@@ -285,7 +250,6 @@ const Builder = () => {
   };
 
   const handlePaymentSuccess = () => {
-    setShowPayment(false);
     setIsPaid(true);
     sessionStorage.setItem('nr_paid', 'true');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -347,8 +311,8 @@ const Builder = () => {
       <Layout>
         <div className="max-w-4xl mx-auto pt-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Edit</button>
-            <div className="bg-green-50 text-green-700 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider">✨ Order Confirmed</div>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Back to Edit Details</button>
+            <div className="bg-green-50 text-green-700 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-wider border border-green-100">✨ Order Confirmed</div>
           </div>
           <DocumentPreview user={userData} result={result} packageType={selectedPackage} />
         </div>
@@ -356,21 +320,36 @@ const Builder = () => {
     );
   }
 
-  // 3. Checkout Screen Step
+  // 3. Checkout Screen Step (Now with PayPal Buttons integrated)
   if (result && userData && !isPaid) {
     return (
       <Layout>
-        {showPayment && <PaymentOverlay amount={getPrice()} onConfirm={handlePaymentSuccess} onCancel={() => setShowPayment(false)} />}
         <div className="max-w-2xl mx-auto py-20 px-4 text-center">
-          <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100">
+          <div className="bg-white p-12 rounded-[3rem] shadow-2xl border border-blue-100 animate-fadeIn">
             <div className="w-20 h-20 bg-green-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8"><span className="text-4xl">✅</span></div>
-            <h2 className="text-4xl font-black mb-6 tracking-tight">Documents are Ready</h2>
-            <div className="bg-blue-600 p-8 rounded-3xl mb-10 shadow-xl text-white">
+            <h2 className="text-4xl font-black mb-6 tracking-tight">Documents are Ready!</h2>
+            <p className="text-gray-500 mb-8 font-medium">Complete payment to unlock your {selectedPackage.replace('_', ' ')} documents.</p>
+            
+            <div className="bg-blue-600 p-10 rounded-3xl mb-12 shadow-xl text-white transform hover:scale-105 transition duration-500">
                <p className="text-xs font-black uppercase tracking-[4px] mb-2 opacity-70">Pay Once, Access Forever</p>
                <div className="text-7xl font-black tracking-tighter">₹{getPrice()}</div>
             </div>
-            <button onClick={() => setShowPayment(true)} className="w-full bg-blue-600 text-white py-6 rounded-2xl text-2xl font-black hover:bg-blue-700 transition shadow-xl mb-6">Unlock Documents</button>
-            <button onClick={() => setResult(null)} className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">← Back to Edit</button>
+
+            {/* Integrated Payment Area */}
+            <div className="max-w-sm mx-auto space-y-6">
+              <PayPalBtn amount={getPrice()} onConfirm={handlePaymentSuccess} />
+              
+              <div className="pt-6 border-t border-dashed border-gray-200">
+                <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase tracking-widest font-bold">
+                  {useTestBypass ? 'Hide' : 'Show Success Bypass'}
+                </button>
+                {useTestBypass && (
+                  <button onClick={handlePaymentSuccess} className="w-full mt-4 bg-green-50 text-green-700 py-4 rounded-xl border border-green-200 text-[11px] font-black uppercase tracking-[2px]">🚀 Success Bypass</button>
+                )}
+              </div>
+            </div>
+
+            <button onClick={() => setResult(null)} className="mt-12 text-gray-400 font-bold uppercase tracking-widest text-[10px] hover:text-blue-600 transition">← Back to Edit My Details</button>
           </div>
         </div>
       </Layout>

@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { UserData, DocumentResult, PackageType } from '../types';
 
 interface Props {
@@ -9,6 +8,15 @@ interface Props {
 }
 
 const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
+  // Set document title so PDF filename defaults to user's name
+  useEffect(() => {
+    const originalTitle = document.title;
+    document.title = `${user.fullName} - Job Application Documents`;
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [user.fullName]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -18,13 +26,12 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
 
   return (
     <div className="space-y-12 pb-20">
-      {/* Resume Section */}
       <div className="flex justify-center no-print mb-4">
-        <p className="text-gray-400 text-sm italic">Tip: Use "Save as PDF" in print settings.</p>
+        <p className="text-gray-400 text-sm italic">Tip: Use "Save as PDF" in print settings. The filename will be "{user.fullName}.pdf"</p>
       </div>
 
-      <section id="resume-preview" className="bg-white p-12 shadow-2xl border border-gray-100 max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 overflow-hidden relative">
-        {/* Modern Header Design */}
+      {/* Resume Section */}
+      <section id="resume-preview" className="bg-white p-12 shadow-2xl border border-gray-100 max-w-[210mm] mx-auto min-h-[297mm] text-gray-900 overflow-hidden relative print:shadow-none print:border-none">
         <div className="text-center mb-8 border-b-2 border-gray-900 pb-6">
           <h1 className="text-4xl font-black uppercase tracking-tighter mb-2">{user.fullName}</h1>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm font-medium text-gray-600">
@@ -37,7 +44,6 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
         </div>
 
         <div className="grid grid-cols-12 gap-8">
-          {/* Main Column */}
           <div className="col-span-12 space-y-6">
             <div>
               <h2 className="text-lg font-bold border-b border-gray-300 mb-3 uppercase tracking-widest text-blue-900">Professional Summary</h2>
@@ -66,7 +72,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
               <h2 className="text-lg font-bold border-b border-gray-300 mb-3 uppercase tracking-widest text-blue-900">Education</h2>
               <div className="grid md:grid-cols-2 gap-4">
                 {user.education.map((edu, idx) => (
-                  <div key={idx} className="bg-gray-50 p-3 rounded border border-gray-100">
+                  <div key={idx} className="bg-gray-50 p-3 rounded border border-gray-100 print:bg-white print:border-gray-200">
                     <div className="flex justify-between items-baseline mb-1">
                       <h3 className="font-bold text-gray-800 text-sm">{edu.degree}</h3>
                       <span className="text-[11px] font-bold text-gray-500">{edu.year}</span>
@@ -92,38 +98,50 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
         </div>
       </section>
 
-      {/* Cover Letter Section - Hidden during print unless specified */}
+      {/* Cover Letter Section - Visible in print if part of package */}
       {hasCoverLetter && (
-        <section className="bg-white p-10 shadow-xl border border-gray-100 max-w-[210mm] mx-auto no-print rounded-2xl">
-          <div className="flex items-center gap-3 mb-6">
+        <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
+          <div className="flex items-center gap-3 mb-8 no-print">
             <span className="bg-blue-100 text-blue-600 p-2 rounded-lg text-xl">📧</span>
             <h2 className="text-2xl font-bold text-gray-800">Professional Cover Letter</h2>
           </div>
-          <div className="bg-gray-50 p-8 rounded-xl border border-gray-200">
-            <p className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed font-serif">
+          <div className="text-gray-900 text-sm leading-relaxed font-serif space-y-6">
+            <div className="mb-10">
+              <p className="font-bold">{user.fullName}</p>
+              <p>{user.location}</p>
+              <p>{user.email}</p>
+              <p>{user.phone}</p>
+            </div>
+            <p>To,</p>
+            <p>The Hiring Manager,</p>
+            <div className="whitespace-pre-wrap">
               {result.coverLetter}
-            </p>
+            </div>
+            <div className="mt-12">
+              <p>Sincerely,</p>
+              <p className="font-bold mt-2">{user.fullName}</p>
+            </div>
           </div>
         </section>
       )}
 
-      {/* LinkedIn Section */}
+      {/* LinkedIn Section - Visible in print if part of package */}
       {hasLinkedIn && (
-        <section className="bg-white p-10 shadow-xl border border-gray-100 max-w-[210mm] mx-auto no-print rounded-2xl">
-          <div className="flex items-center gap-3 mb-6">
+        <section className="bg-white p-12 shadow-xl border border-gray-100 max-w-[210mm] mx-auto rounded-2xl print:shadow-none print:border-none page-break">
+          <div className="flex items-center gap-3 mb-8 no-print">
             <span className="bg-blue-600 text-white p-2 rounded-lg text-xl">in</span>
             <h2 className="text-2xl font-bold text-gray-800">LinkedIn Profile Optimization</h2>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-10">
             <div>
               <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">Optimized Headline</label>
-              <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-800">
+              <div className="p-6 bg-blue-50 border border-blue-100 rounded-xl font-bold text-blue-800 text-lg print:bg-white print:border-gray-200">
                 {result.linkedinHeadline}
               </div>
             </div>
             <div>
               <label className="block text-[10px] font-black uppercase text-gray-400 mb-2 tracking-[2px]">About Section (Keywords optimized)</label>
-              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
+              <div className="p-6 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 text-sm whitespace-pre-wrap leading-relaxed print:bg-white print:border-gray-200">
                 {result.linkedinSummary}
               </div>
             </div>
@@ -137,7 +155,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType }) => {
           onClick={handlePrint} 
           className="bg-blue-600 text-white px-12 py-5 rounded-full font-black text-lg shadow-[0_10px_30px_rgba(37,99,235,0.4)] hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 flex items-center gap-3"
         >
-          <span className="text-xl">🖨️</span> Print / Save as PDF
+          <span className="text-xl">🖨️</span> Save All Documents as PDF
         </button>
       </div>
     </div>
