@@ -9,23 +9,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- 
-      PAYPAL ACTIVATION: 
-      Replace 'test' with your LIVE Client ID from developer.paypal.com 
-      Example: client-id=AX_abc123...
-    -->
-    <script 
-        src="https://www.paypal.com/sdk/js?client-id=Afvb9szxW-P-YIXP25ECJs9gLxes1MpbgpitRPhjIGwSw1qGNpxDusuvcEHTHto0PIVlQUVngNShi2c_&currency=INR&intent=capture" 
-        data-sdk-integration-source="button-factory"
-        crossorigin="anonymous"
-        async
-    ></script>
+    <!-- Razorpay Checkout SDK -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
     <style>
         body { font-family: 'Inter', sans-serif; }
         
         @media print {
-            /* This CSS specifically removes browser headers (URLs) and footers (Date) */
             @page { 
                 margin: 0; 
                 size: auto;
@@ -33,11 +23,9 @@
             body { 
                 margin: 0;
                 background: white !important;
-                /* Ensures background colors like blue headers show up in PDF */
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-            /* Provides a safe content margin for the printer/PDF */
             .print-container {
                 padding: 1.5cm !important;
             }

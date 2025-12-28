@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ResumeForm from './components/ResumeForm';
@@ -105,34 +105,6 @@ const Home = () => {
   );
 };
 
-const PayPalBtn = ({ amount, onConfirm }: { amount: number, onConfirm: () => void }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    const initPayPal = async () => {
-      const paypal = (window as any).paypal;
-      if (paypal && containerRef.current && isMounted) {
-        containerRef.current.innerHTML = '';
-        try {
-          await paypal.Buttons({
-            style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
-            createOrder: (data: any, actions: any) => actions.order.create({ purchase_units: [{ amount: { value: (amount / 80).toFixed(2), currency_code: 'USD' } }] }),
-            onApprove: (data: any, actions: any) => actions.order.capture().then(() => { if (isMounted) onConfirm(); }),
-            onError: () => { if (isMounted) setError("Payment gateway error."); }
-          }).render(containerRef.current);
-        } catch (e) { if (isMounted) setError("Restriction detected."); }
-      }
-    };
-    setTimeout(initPayPal, 1000);
-    return () => { isMounted = false; };
-  }, [amount]);
-
-  if (error) return <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-xl">{error}</div>;
-  return <div ref={containerRef} className="w-full min-h-[100px] flex items-center justify-center bg-gray-50 rounded-2xl">Loading Payment...</div>;
-};
-
 const Builder = () => {
   const [searchParams] = useSearchParams();
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(searchParams.get('package') as PackageType | null);
@@ -143,7 +115,6 @@ const Builder = () => {
   const [result, setResult] = useState<DocumentResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckout, setIsCheckout] = useState(false);
-  const [useTestBypass, setUseTestBypass] = useState(false);
 
   const getIdentifier = (email: string, phone: string) => `${email.toLowerCase().trim()}_${phone.trim()}`;
   
@@ -171,16 +142,46 @@ const Builder = () => {
     localStorage.setItem('jdp_usage_map', JSON.stringify(usageMap));
   }, [usageMap]);
 
+  const handleRazorpayCheckout = () => {
+    if (!userData || !selectedPackage) return;
+    
+    const amount = PRICING[selectedPackage].price;
+    const options = {
+      key: "rzp_test_placeholder", // REPLACE WITH REAL RAZORPAY KEY ID
+      amount: amount * 100, // Amount in paise
+      currency: "INR",
+      name: "JobDocPro",
+      description: `Payment for ${PRICING[selectedPackage].label}`,
+      handler: function(response: any) {
+        if (response.razorpay_payment_id) {
+          handlePaymentSuccess();
+        }
+      },
+      prefill: {
+        name: userData.fullName,
+        email: userData.email,
+        contact: userData.phone
+      },
+      theme: {
+        color: "#2563eb"
+      }
+    };
+
+    const rzp = new (window as any).Razorpay(options);
+    rzp.on('payment.failed', function (response: any) {
+      alert("Payment failed: " + response.error.description);
+    });
+    rzp.open();
+  };
+
   const onFormSubmit = (data: UserData) => {
     setUserData(data);
     const id = getIdentifier(data.email, data.phone);
     const count = usageMap[id] || 0;
     
-    // Allow generation only if user has paid AND has remaining quota
     if (paidIdentifiers.includes(id) && count < 2) {
       runGeneration(data);
     } else {
-      // Otherwise, trigger payment flow (either first time or for renewal)
       setIsCheckout(true);
       window.scrollTo(0, 0);
     }
@@ -190,7 +191,6 @@ const Builder = () => {
     if (userData) {
       const id = getIdentifier(userData.email, userData.phone);
       
-      // RESET quota for this identity upon successful payment
       setUsageMap(prev => ({
         ...prev,
         [id]: 0
@@ -253,7 +253,6 @@ const Builder = () => {
     );
   }
 
-  // Only show results if paid AND within quota
   if (result && userData && isPaid && usageCount <= 2) {
     return (
       <Layout>
@@ -288,9 +287,13 @@ const Builder = () => {
                <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">Includes 2 Generations</div>
             </div>
             <div className="max-w-sm mx-auto space-y-6">
-              <PayPalBtn amount={PRICING[selectedPackage].price} onConfirm={handlePaymentSuccess} />
-              <button onClick={() => setUseTestBypass(!useTestBypass)} className="text-[10px] text-blue-600 underline uppercase font-bold opacity-30">Test Bypass</button>
-              {useTestBypass && <button onClick={handlePaymentSuccess} className="w-full bg-green-50 text-green-700 py-4 rounded-xl font-black border border-green-200">🚀 Success Bypass</button>}
+              <button 
+                onClick={handleRazorpayCheckout}
+                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
+              >
+                Pay with Razorpay
+              </button>
+              <p className="text-[10px] text-gray-400 font-bold uppercase">Secure Transaction via Razorpay</p>
             </div>
             <button onClick={() => setIsCheckout(false)} className="mt-8 text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">← Back to Form</button>
           </div>
