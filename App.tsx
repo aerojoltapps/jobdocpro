@@ -351,8 +351,9 @@ const Builder = () => {
       setUserData(data);
       setResult(generated);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
-      alert("Something went wrong. Please check your internet connection.");
+    } catch (error: any) {
+      const errorMsg = error.message || "Something went wrong while generating documents.";
+      alert(errorMsg);
       console.error(error);
     } finally {
       setLoading(false);

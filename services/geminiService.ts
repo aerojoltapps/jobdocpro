@@ -3,7 +3,14 @@ import { UserData, DocumentResult } from "../types";
 
 export const generateJobDocuments = async (userData: UserData): Promise<DocumentResult> => {
   // Initialize AI client inside the function to ensure the latest API key is used
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Note: process.env.API_KEY is injected by Vite at build time or handled by the environment
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("API_KEY is missing. Please set it in your environment variables.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   
   const prompt = `
     Act as an expert Indian recruiter. Transform the following user details into professional, ATS-friendly job documents.
@@ -30,7 +37,7 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [{ parts: [{ text: prompt }] }],
+      contents: prompt, // Simplified contents format
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -54,11 +61,15 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
     });
 
     const text = response.text;
-    if (!text) throw new Error("No response from AI");
+    if (!text) {
+      throw new Error("The AI model returned an empty response.");
+    }
     
     return JSON.parse(text) as DocumentResult;
-  } catch (e) {
-    console.error("Gemini Service Error:", e);
-    throw new Error("Failed to generate documents. Please ensure your API key is correctly configured in Vercel.");
+  } catch (e: any) {
+    console.error("Gemini Service Detailed Error:", e);
+    // Throw a more descriptive error message
+    const errorMessage = e.message || "Unknown API Error";
+    throw new Error(`Generation Failed: ${errorMessage}`);
   }
 };
