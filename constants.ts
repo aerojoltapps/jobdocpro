@@ -5,25 +5,25 @@ export const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE';
 
 export const PRICING = {
   [PackageType.RESUME_ONLY]: { 
-    price: 199, 
-    label: 'Resume Only',
-    features: ['ATS-Friendly Resume', 'Professional Summary', 'PDF Format']
+    price: 99, 
+    label: 'Starter Pack',
+    features: ['1 Professional Resume', 'ATS-Friendly Layout', 'Instant PDF Download', 'Indian Market Optimized']
   },
   [PackageType.RESUME_COVER]: { 
-    price: 299, 
-    label: 'Resume + Cover Letter',
-    features: ['Everything in Resume Only', 'Role-Specific Cover Letter', 'Formal Language Sync']
+    price: 199, 
+    label: 'Pro Pack',
+    features: ['3 Generation Credits', 'Resume + Cover Letter', 'Clean Layouts', 'Priority PDF Export']
   },
   [PackageType.JOB_READY_PACK]: { 
-    price: 499, 
-    label: 'Job Ready Pack (All-in-One)',
+    price: 299, 
+    label: 'Job Ready Pack',
     features: [
-      'Everything in Resume + Cover',
-      'LinkedIn Optimization',
-      'Job-Specific Keyword Mapping',
-      'Recruiter-Style Bullet Rewriting',
+      'Unlimited Edits (24hrs)',
+      'Job-Specific Optimization',
+      'LinkedIn About Section',
+      'Recruiter Keyword Mapping',
       'ATS Score Explanation',
-      'Resume Review Upsell'
+      'No Watermark'
     ]
   },
 };
