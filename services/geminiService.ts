@@ -1,8 +1,7 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { UserData, DocumentResult } from "../types";
 
-export const generateJobDocuments = async (userData: UserData): Promise<DocumentResult> => {
+export const generateJobDocuments = async (userData: UserData, feedback?: string): Promise<DocumentResult> => {
   const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
@@ -11,7 +10,7 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
 
   const ai = new GoogleGenAI({ apiKey });
   
-  const prompt = `
+  const basePrompt = `
     Act as an expert Indian recruiter. Transform the following user details into professional, ATS-friendly job documents.
     
     User Details:
@@ -31,14 +30,18 @@ export const generateJobDocuments = async (userData: UserData): Promise<Document
     6. (Premium) A list of 10-12 Job-Specific Keywords to include.
     7. (Premium) A 2-sentence ATS Score Explanation (why this format works for ATS).
     8. (Premium) 2 short Recruiter Insights on how to pitch this profile.
-    
-    Language should be professional but simple. Return strictly JSON.
   `;
+
+  const refinementPrompt = feedback 
+    ? `\n\nCRITICAL UPDATE: The user has requested the following changes to the previous version: "${feedback}". Please apply these changes while keeping the professional structure.`
+    : "";
+
+  const finalPrompt = basePrompt + refinementPrompt + "\nLanguage should be professional but simple. Return strictly JSON.";
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: finalPrompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {

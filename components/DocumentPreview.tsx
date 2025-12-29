@@ -1,5 +1,4 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserData, DocumentResult, PackageType } from '../types';
 
 interface Props {
@@ -8,9 +7,23 @@ interface Props {
   packageType: PackageType;
   isPreview?: boolean;
   onUnlock?: () => void;
+  onRefine?: (feedback: string) => void;
+  isRefining?: boolean;
+  remainingCredits: number;
 }
 
-const DocumentPreview: React.FC<Props> = ({ user, result, packageType, isPreview = false, onUnlock }) => {
+const DocumentPreview: React.FC<Props> = ({ 
+  user, 
+  result, 
+  packageType, 
+  isPreview = false, 
+  onUnlock, 
+  onRefine, 
+  isRefining = false,
+  remainingCredits
+}) => {
+  const [feedback, setFeedback] = useState('');
+
   useEffect(() => {
     const originalTitle = document.title;
     document.title = `${user.fullName}_Resume`;
@@ -22,18 +35,66 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType, isPreview
   const hasCoverLetter = packageType === PackageType.RESUME_COVER || packageType === PackageType.JOB_READY_PACK;
   const hasLinkedIn = packageType === PackageType.JOB_READY_PACK;
 
+  const handleRefineSubmit = () => {
+    if (!feedback.trim()) return;
+    if (remainingCredits <= 0) {
+      alert("No credits remaining for AI refinement.");
+      return;
+    }
+    onRefine?.(feedback);
+    setFeedback('');
+  };
+
   return (
     <div className="space-y-12 pb-24 print-container relative animate-fadeIn">
       {/* Visual Instruction */}
       {!isPreview && (
-        <div className="max-w-[210mm] mx-auto bg-blue-50 border border-blue-100 p-5 rounded-2xl no-print flex items-start gap-4 shadow-sm">
-          <span className="text-2xl">💡</span>
-          <div>
-            <h4 className="font-black text-blue-900 text-sm">Download Pro Tip:</h4>
-            <p className="text-blue-700 text-xs mt-1 leading-relaxed font-medium">
-              When printing to PDF, ensure <strong>"Headers & Footers"</strong> are <u>Unchecked</u> in "More Settings" for the cleanest professional look.
-            </p>
+        <div className="max-w-[210mm] mx-auto bg-blue-50 border border-blue-100 p-5 rounded-2xl no-print flex flex-col md:flex-row items-center gap-4 shadow-sm">
+          <div className="flex items-start gap-4">
+            <span className="text-2xl">💡</span>
+            <div>
+              <h4 className="font-black text-blue-900 text-sm">Download Pro Tip:</h4>
+              <p className="text-blue-700 text-xs mt-1 leading-relaxed font-medium">
+                When printing to PDF, ensure <strong>"Headers & Footers"</strong> are <u>Unchecked</u> in "More Settings" for the cleanest professional look.
+              </p>
+            </div>
           </div>
+          <div className="md:ml-auto no-print">
+            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-blue-100 shadow-sm">
+              <span className="text-[10px] font-black uppercase text-gray-400">Credits:</span>
+              <span className={`text-sm font-black ${remainingCredits > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {remainingCredits} / 3
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ask AI Refinement Section - Only for paid users */}
+      {!isPreview && onRefine && (
+        <div className="max-w-[210mm] mx-auto bg-white border border-gray-100 p-6 rounded-[2rem] no-print shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xs">AI</div>
+            <h4 className="font-black text-gray-900 uppercase tracking-widest text-xs">Modify Content (Ask AI)</h4>
+          </div>
+          <div className="flex gap-3">
+            <input 
+              type="text"
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              disabled={isRefining || remainingCredits <= 0}
+              placeholder={remainingCredits > 0 ? "e.g., 'Make the summary more senior' or 'Highlight my project management skills'" : "No credits left to edit"}
+              className="flex-grow border border-gray-200 p-4 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <button 
+              onClick={handleRefineSubmit}
+              disabled={isRefining || !feedback.trim() || remainingCredits <= 0}
+              className="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {isRefining ? 'Refining...' : 'Update'}
+            </button>
+          </div>
+          <p className="mt-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest">Updating will consume 1 credit.</p>
         </div>
       )}
 
@@ -81,7 +142,10 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType, isPreview
               {user.education.map((edu, idx) => (
                 <div key={idx} className="bg-gray-50/50 p-4 rounded-xl border border-gray-100">
                   <p className="font-black text-[14px] text-gray-900">{edu.degree}</p>
-                  <p className="text-[12px] text-gray-500 font-bold uppercase tracking-tighter mt-1">{edu.college} • Class of {edu.year}</p>
+                  <p className="text-[12px] text-gray-500 font-bold uppercase tracking-tighter mt-1">
+                    {edu.college} • Class of {edu.year} 
+                    {edu.percentage ? ` • ${edu.percentage.includes('%') ? edu.percentage : `${edu.percentage}%`}` : ''}
+                  </p>
                 </div>
               ))}
             </div>
@@ -118,7 +182,7 @@ const DocumentPreview: React.FC<Props> = ({ user, result, packageType, isPreview
                 </button>
                 <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                    <span className="w-1 h-1 bg-green-500 rounded-full"></span>
-                   Includes 3 PDF Generations
+                   Includes 3 Generations
                 </div>
               </div>
             </div>

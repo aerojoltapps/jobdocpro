@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ResumeForm from './components/ResumeForm';
 import DocumentPreview from './components/DocumentPreview';
 import Gallery from './components/Gallery';
-import { UserData, DocumentResult, PackageType } from './types';
+import { UserData, DocumentResult, PackageType, JobRole } from './types';
 import { generateJobDocuments } from './services/geminiService';
 import { PRICING, RAZORPAY_KEY_ID } from './constants';
 
@@ -63,14 +62,18 @@ const Home = () => {
         <section className="relative bg-white pt-20 pb-24">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-[2px] mb-6 animate-fadeIn">
-              India's Most Trusted Career Toolkit
+              Best Professional Resume Service in India
             </span>
             <h1 className="text-5xl md:text-7xl font-black text-gray-900 leading-[1.05] tracking-tight mb-8">
               Get a job-ready resume <br className="hidden md:block" /> 
               <span className="text-blue-600">in 15 minutes.</span>
             </h1>
-            <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12 font-medium leading-relaxed">
-              No AI skills needed. No complex prompts. Just professional documents ready to submit to Indian recruiters.
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6 font-semibold leading-relaxed">
+              We provide ATS-friendly resume writing services in India for freshers and experienced professionals. 
+              <strong> No AI skills needed. No complex prompts. Just professional documents ready to submit to Indian recruiters.</strong>
+            </p>
+            <p className="text-md text-gray-400 max-w-2xl mx-auto mb-12 font-medium">
+              Join thousands of job seekers using our <strong>Resume writing service India</strong> to build an <strong>ATS friendly resume</strong>. Get expert <strong>fresher resume help</strong> with our <strong>professional resume service</strong> today.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-6 mb-16">
               <Link 
@@ -97,7 +100,7 @@ const Home = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-black mb-4 tracking-tight">JobDocPro vs. Free AI Tools</h2>
-              <p className="text-gray-500 font-medium">Why 1,000+ candidates choose us every month.</p>
+              <p className="text-gray-500 font-medium">Why we are the preferred resume writing service in India.</p>
             </div>
             <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-sm">
@@ -131,8 +134,23 @@ const Builder = () => {
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(searchParams.get('package') as PackageType | null);
   const [userData, setUserData] = useState<UserData | null>(() => {
     const saved = localStorage.getItem('jdp_draft');
-    return saved ? JSON.parse(saved) : null;
+    const initialRole = searchParams.get('role');
+    
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (initialRole) parsed.jobRole = initialRole as JobRole;
+      return parsed;
+    }
+    
+    return initialRole ? {
+      fullName: '', email: '', phone: '', location: '',
+      jobRole: initialRole as JobRole,
+      education: [{ degree: '', college: '', year: '', percentage: '' }],
+      experience: [{ title: '', company: '', duration: '', description: '' }],
+      skills: [''],
+    } : null;
   });
+
   const [result, setResult] = useState<DocumentResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckout, setIsCheckout] = useState(false);
@@ -150,7 +168,6 @@ const Builder = () => {
   const isPaid = paidIdentifiers.includes(currentId);
   const remainingCredits = creditsMap[currentId] !== undefined ? creditsMap[currentId] : 0;
 
-  // Sync state to local storage
   useEffect(() => {
     if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
   }, [userData]);
@@ -218,18 +235,8 @@ const Builder = () => {
   const handlePaymentSuccess = () => {
     if (userData) {
       const id = getIdentifier(userData.email, userData.phone);
-      
-      // Mark as paid and grant 3 fresh credits
-      setPaidIdentifiers(prev => {
-        if (prev.includes(id)) return prev;
-        return [...prev, id];
-      });
-
-      setCreditsMap(prev => ({
-        ...prev,
-        [id]: 3
-      }));
-
+      setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
+      setCreditsMap(prev => ({ ...prev, [id]: 3 }));
       setIsCheckout(false);
       window.scrollTo(0, 0);
     }
@@ -240,7 +247,6 @@ const Builder = () => {
     const userIsPaid = paidIdentifiers.includes(id);
     const userCredits = creditsMap[id] !== undefined ? creditsMap[id] : 0;
 
-    // Check if paid user has credits left
     if (userIsPaid && userCredits <= 0) {
       alert("You have used all 3 generations. Please purchase another pack to continue editing.");
       setIsCheckout(true);
@@ -255,7 +261,6 @@ const Builder = () => {
       const generated = await generateJobDocuments(data);
       setResult(generated);
       
-      // Deduct credit ONLY after a successful generation for a paid user
       if (userIsPaid) {
         setCreditsMap(prev => ({
           ...prev,
@@ -266,6 +271,27 @@ const Builder = () => {
       window.scrollTo(0, 0);
     } catch (e: any) {
       alert(e.message || "Generation failed. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleRefine = async (feedback: string) => {
+    if (!userData || remainingCredits <= 0) return;
+    
+    setIsGenerating(true);
+    const id = getIdentifier(userData.email, userData.phone);
+
+    try {
+      const refined = await generateJobDocuments(userData, feedback);
+      setResult(refined);
+      
+      setCreditsMap(prev => ({
+        ...prev,
+        [id]: Math.max(0, (prev[id] || 3) - 1)
+      }));
+    } catch (e: any) {
+      alert("Refinement failed: " + e.message);
     } finally {
       setIsGenerating(false);
     }
@@ -292,8 +318,8 @@ const Builder = () => {
       <Layout>
         <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
-           <h2 className="text-3xl font-black mb-4 tracking-tight">Generating Your Job-Ready Docs...</h2>
-           <p className="text-gray-500 font-medium">This usually takes about 15-20 seconds.</p>
+           <h2 className="text-3xl font-black mb-4 tracking-tight">AI at Work...</h2>
+           <p className="text-gray-500 font-medium">Refining your documents to perfection. 15-20 seconds remaining.</p>
         </div>
       </Layout>
     );
@@ -304,7 +330,16 @@ const Builder = () => {
       <Layout>
         <div className="max-w-5xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline flex items-center gap-2">
+            <button 
+              onClick={() => {
+                if (remainingCredits <= 0) {
+                  alert("You have used all 3 generations. Purchase a new pack to edit details.");
+                } else {
+                  setResult(null);
+                }
+              }} 
+              className="text-blue-600 font-bold hover:underline flex items-center gap-2"
+            >
                <span>←</span> Edit Details
             </button>
             <div className="flex flex-col items-end">
@@ -334,6 +369,8 @@ const Builder = () => {
             packageType={selectedPackage} 
             isPreview={!isPaid}
             onUnlock={() => setIsCheckout(true)}
+            onRefine={isPaid ? handleRefine : undefined}
+            remainingCredits={remainingCredits}
           />
         </div>
 
@@ -341,7 +378,7 @@ const Builder = () => {
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
             <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center" onClick={e => e.stopPropagation()}>
               <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Apply?</h2>
-              <p className="text-gray-500 mb-8 font-medium leading-relaxed">Unlock the full PDF, recruiter insights, and keyword optimization. <strong>Includes 3 free edits.</strong></p>
+              <p className="text-gray-500 mb-8 font-medium leading-relaxed">Unlock the full PDF, recruiter insights, and AI refinement tools. <strong>Includes 3 generations.</strong></p>
               <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                  <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
                  <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time Payment</div>
@@ -351,11 +388,10 @@ const Builder = () => {
                   onClick={handleRazorpayCheckout}
                   className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
                 >
-                  Pay & Download
+                  Unlock Instantly
                 </button>
                 <button onClick={() => setIsCheckout(false)} className="block w-full text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">Maybe Later</button>
               </div>
-              <p className="mt-8 text-[9px] text-gray-300 font-bold uppercase tracking-widest">Secured by Razorpay • Instant Access</p>
             </div>
           </div>
         )}
@@ -387,7 +423,6 @@ const Pricing = () => (
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, One-Time Pricing</h1>
       <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Pay once, use 3 times. No subscriptions or hidden fees.</p>
-      
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
           <PackageCard key={key} pkgKey={key} data={val} />
@@ -404,8 +439,8 @@ const FAQ = () => (
       <div className="space-y-6">
         {[
           { q: "Is this ATS friendly?", a: "Yes. Our formats are specifically designed for the software used by Indian firms like TCS, Infosys, and startups." },
-          { q: "What is the '3 Generations' quota?", a: "Every purchase gives you 3 generation attempts. This means if you want to change your skills or experience later, you can regenerate the whole pack for free up to 3 times." },
-          { q: "How do I download the PDF?", a: "Once you unlock, a 'Download All' button appears. It will open your browser's print dialog where you can 'Save as PDF'." }
+          { q: "What is the '3 Generations' quota?", a: "Every purchase gives you 3 generation attempts. This includes refining your content with AI or changing your details." },
+          { q: "How do I download the PDF?", a: "Once you unlock, a 'Download All' button appears. Use your browser's print dialog to 'Save as PDF'." }
         ].map((item, i) => (
           <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-100 transition">
             <h3 className="text-xl font-black mb-2 leading-tight text-gray-900">{item.q}</h3>

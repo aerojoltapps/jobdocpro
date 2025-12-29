@@ -1,10 +1,31 @@
-
 export enum JobRole {
-  IT = 'IT / Software',
+  IT = 'IT / Software Engineer',
   SALES = 'Sales & Marketing',
   SUPPORT = 'Customer Support / BPO',
   FRESHER = 'Fresher (Any Graduate)',
-  FINANCE = 'Finance & Accounting'
+  FINANCE = 'Finance & Accounting',
+  HR = 'HR & Recruitment',
+  DIGITAL_MARKETING = 'Digital Marketing & SEO',
+  DATA = 'Data Analyst / Scientist',
+  PROJECT_MGMT = 'Project Management',
+  TEACHING = 'Teaching & Education',
+  HEALTHCARE = 'Healthcare / Nursing',
+  CIVIL = 'Civil Engineering',
+  MECHANICAL = 'Mechanical Engineering',
+  DESIGN = 'Graphic & UI/UX Design',
+  CONTENT = 'Content Writing / Journalism',
+  HOSPITALITY = 'Hotel Management & Hospitality',
+  LEGAL = 'Legal / Law Professional',
+  OPERATIONS = 'Operations & Supply Chain',
+  BANKING = 'Banking & Insurance',
+  DATA_ENTRY = 'Data Entry Operator',
+  DELIVERY = 'Delivery Partner / Executive',
+  DRIVER = 'Professional Driver',
+  RECEPTIONIST = 'Receptionist / Front Desk',
+  TECHNICIAN = 'Technician / Electrician',
+  DIPLOMA_ENTRY = 'Diploma (Entry Level)',
+  SECURITY = 'Security Staff',
+  OFFICE_STAFF = 'Office Staff / Peon'
 }
 
 export interface UserData {
@@ -27,6 +48,7 @@ export interface UserData {
   }[];
   skills: string[];
   summary?: string;
+  refinementFeedback?: string; // For AI-based edits
 }
 
 export interface DocumentResult {
