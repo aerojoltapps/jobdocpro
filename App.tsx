@@ -255,8 +255,19 @@ const Builder = () => {
           });
           
           if (sync.ok) {
+            // CRITICAL: Update local paid status immediately to prevent re-blocking
+            const id = getIdentifier(dataToUse.email, dataToUse.phone);
+            setPaidIdentifiers(prev => [...prev, id]);
+            setCreditsMap(prev => ({ ...prev, [id]: 3 }));
+            
+            // Allow 1.5s for KV propagation across regions
             setIsCheckout(false);
-            onFormSubmit(dataToUse);
+            setIsGenerating(true);
+            setTimeout(() => {
+              onFormSubmit(dataToUse);
+            }, 1500);
+          } else {
+            alert("Payment verification failed. Please contact support.");
           }
         },
         prefill: {
