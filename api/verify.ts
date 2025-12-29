@@ -4,8 +4,10 @@ export const config = {
   runtime: 'edge',
 };
 
+// Standardized hashing for consistent KV keys across all API routes
 async function hashIdentifier(id: string): Promise<string> {
-  const msgBuffer = new TextEncoder().encode(id.toLowerCase().trim());
+  const normalized = id.toLowerCase().trim();
+  const msgBuffer = new TextEncoder().encode(normalized);
   const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -41,17 +43,17 @@ export default async function handler(req: Request) {
 
   const keySecret = process.env.RAZORPAY_KEY_SECRET;
   if (!keySecret) {
-    return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
+    return new Response(JSON.stringify({ error: 'Server configuration error: Key Secret missing.' }), { 
       status: 500, 
       headers: securityHeaders 
     });
   }
 
   try {
-    const { identifier, paymentId, orderId, signature, packageType } = await req.json();
+    const { identifier, paymentId, orderId, signature } = await req.json();
     
     if (!identifier || !paymentId || !orderId || !signature) {
-      return new Response(JSON.stringify({ error: 'Incomplete verification data' }), { 
+      return new Response(JSON.stringify({ error: 'Missing required payment verification fields.' }), { 
         status: 400, 
         headers: securityHeaders 
       });
@@ -59,24 +61,28 @@ export default async function handler(req: Request) {
 
     const isValid = await verifyRazorpaySignature(orderId, paymentId, signature, keySecret);
     if (!isValid) {
-      return new Response(JSON.stringify({ error: 'Security verification failed' }), { 
+      console.warn(`Payment signature mismatch for identifier: ${identifier}`);
+      return new Response(JSON.stringify({ error: 'Payment signature could not be verified.' }), { 
         status: 403, 
         headers: securityHeaders 
       });
     }
 
     const secureId = await hashIdentifier(identifier);
+    // Default to 3 credits for initial purchase
     await kv.set(`paid_v2_${secureId}`, {
       verifiedAt: new Date().toISOString(),
-      credits: 3 
+      credits: 3,
+      lastPaymentId: paymentId
     });
 
-    return new Response(JSON.stringify({ success: true }), { 
+    return new Response(JSON.stringify({ success: true, identifier: secureId }), { 
       status: 200, 
       headers: securityHeaders
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: "Verification failed" }), { 
+    console.error("Verify API Error:", error);
+    return new Response(JSON.stringify({ error: "Internal verification failure." }), { 
       status: 500,
       headers: securityHeaders
     });
