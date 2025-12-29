@@ -252,12 +252,16 @@ const Builder = () => {
       
       window.scrollTo(0, 0);
     } catch (e: any) {
-      const errorMsg = e.message || "";
-      // Standardize check for all payment related triggers including the user's reported alert string
+      // Stringify error if it's an object to ensure keyword matching works on JSON strings too
+      const errorMsg = typeof e === 'string' ? e : (e.message || JSON.stringify(e));
       const lowerError = errorMsg.toLowerCase();
+      
+      // Broadened matching for payment related triggers
       if (lowerError.includes('payment required') || 
-          lowerError.includes('verification failed') || 
-          lowerError.includes('complete your purchase')) {
+          lowerError.includes('complete your purchase') || 
+          lowerError.includes('verification failed') ||
+          lowerError.includes('"payment required"') ||
+          lowerError.includes('purchase required')) {
         setIsCheckout(true);
       } else {
         alert(errorMsg);
@@ -323,68 +327,66 @@ const Builder = () => {
     );
   }
 
-  if (result && userData) {
-    return (
-      <Layout>
-        <div className="max-w-5xl mx-auto py-10 px-4">
-          <div className="flex justify-between items-center mb-10 no-print">
-            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
-            <div className="flex flex-col items-end">
-              {isPaid ? (
-                 <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">
-                    Pro Access Active
-                 </div>
-              ) : (
-                <button onClick={() => setIsCheckout(true)} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black hover:bg-blue-700">🚀 Unlock Now</button>
-              )}
-            </div>
-          </div>
-          <DocumentPreview 
-            user={userData} 
-            result={result} 
-            packageType={selectedPackage} 
-            isPreview={!isPaid}
-            onUnlock={() => setIsCheckout(true)}
-            onRefine={isPaid ? handleRefine : undefined}
-            remainingCredits={remainingCredits}
-          />
-        </div>
-
-        {isCheckout && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center">
-              <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Apply?</h2>
-              <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
-                 <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
-                 <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time Payment</div>
-              </div>
-              <button onClick={handleRazorpayCheckout} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105">Unlock Instantly</button>
-              <button onClick={() => setIsCheckout(false)} className="mt-4 block w-full text-gray-400 font-bold text-xs uppercase">Maybe Later</button>
-            </div>
-          </div>
-        )}
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
-      <div className="max-w-4xl mx-auto py-16 px-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-4">
-          <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold hover:underline">← Change Package</button>
-          <button 
-            onClick={handleGlobalClear} 
-            className="text-[10px] font-black uppercase tracking-widest text-red-500 border border-red-100 bg-red-50 px-4 py-2 rounded-xl hover:bg-red-600 hover:text-white transition shadow-sm"
-          >
-            Clear All My Data
-          </button>
-        </div>
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-black tracking-tight">Career Details</h1>
-          <p className="text-gray-500 mt-2 font-medium">Your data is processed on our secure Vercel server.</p>
-        </div>
-        <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
+      <div className="max-w-5xl mx-auto py-10 px-4">
+        {result && userData ? (
+          <>
+            <div className="flex justify-between items-center mb-10 no-print">
+              <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
+              <div className="flex flex-col items-end">
+                {isPaid ? (
+                   <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">
+                      Pro Access Active
+                   </div>
+                ) : (
+                  <button onClick={() => setIsCheckout(true)} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black hover:bg-blue-700">🚀 Unlock Now</button>
+                )}
+              </div>
+            </div>
+            <DocumentPreview 
+              user={userData} 
+              result={result} 
+              packageType={selectedPackage} 
+              isPreview={!isPaid}
+              onUnlock={() => setIsCheckout(true)}
+              onRefine={isPaid ? handleRefine : undefined}
+              remainingCredits={remainingCredits}
+            />
+          </>
+        ) : (
+          <div className="max-w-4xl mx-auto py-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-4">
+              <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold hover:underline">← Change Package</button>
+              <button 
+                onClick={handleGlobalClear} 
+                className="text-[10px] font-black uppercase tracking-widest text-red-500 border border-red-100 bg-red-50 px-4 py-2 rounded-xl hover:bg-red-600 hover:text-white transition shadow-sm"
+              >
+                Clear All My Data
+              </button>
+            </div>
+            <div className="text-center mb-16">
+              <h1 className="text-4xl font-black tracking-tight">Career Details</h1>
+              <p className="text-gray-500 mt-2 font-medium">Your data is processed on our secure Vercel server.</p>
+            </div>
+            <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
+          </div>
+        )}
       </div>
+
+      {isCheckout && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center">
+            <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Apply?</h2>
+            <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
+               <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
+               <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time Payment</div>
+            </div>
+            <button onClick={handleRazorpayCheckout} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105">Unlock Instantly</button>
+            <button onClick={() => setIsCheckout(false)} className="mt-4 block w-full text-gray-400 font-bold text-xs uppercase">Maybe Later</button>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
