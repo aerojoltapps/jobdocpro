@@ -1,12 +1,13 @@
+
+import { UserData, DocumentResult, PackageType, JobRole } from './types';
+import { generateJobDocuments } from './services/geminiService';
+import { PRICING, RAZORPAY_KEY_ID } from './constants';
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ResumeForm from './components/ResumeForm';
 import DocumentPreview from './components/DocumentPreview';
 import Gallery from './components/Gallery';
-import { UserData, DocumentResult, PackageType, JobRole } from './types';
-import { generateJobDocuments } from './services/geminiService';
-import { PRICING, RAZORPAY_KEY_ID } from './constants';
 
 const PackageCard = ({ 
   pkgKey, 
@@ -240,18 +241,25 @@ const Builder = () => {
       const generated = await generateJobDocuments(data, id);
       setResult(generated);
       
-      if (paidIdentifiers.includes(id)) {
+      // Update state from server response (Syncs Paid status and Credits)
+      setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
+      if (generated.remainingCredits !== undefined) {
         setCreditsMap(prev => ({
           ...prev,
-          [id]: Math.max(0, (prev[id] || 3) - 1)
+          [id]: generated.remainingCredits!
         }));
       }
+      
       window.scrollTo(0, 0);
     } catch (e: any) {
-      if (e.message.includes('Payment required')) {
+      const errorMsg = e.message || "";
+      // Handle "Payment Required" or user's specific "Verification Failed" alert string
+      if (errorMsg.includes('Payment required') || 
+          errorMsg.includes('verification failed') || 
+          errorMsg.includes('complete your purchase')) {
         setIsCheckout(true);
       } else {
-        alert(e.message);
+        alert(errorMsg);
       }
     } finally {
       setIsGenerating(false);
@@ -264,10 +272,14 @@ const Builder = () => {
     try {
       const refined = await generateJobDocuments(userData, currentId, feedback);
       setResult(refined);
-      setCreditsMap(prev => ({
-        ...prev,
-        [currentId]: Math.max(0, (prev[currentId] || 3) - 1)
-      }));
+      
+      // Update credits from server response
+      if (refined.remainingCredits !== undefined) {
+        setCreditsMap(prev => ({
+          ...prev,
+          [currentId]: refined.remainingCredits!
+        }));
+      }
     } catch (e: any) {
       alert(e.message);
     } finally {

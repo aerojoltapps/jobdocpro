@@ -9,11 +9,20 @@ export const generateJobDocuments = async (userData: UserData, identifier: strin
   });
 
   if (!response.ok) {
-    const err = await response.json();
-    if (response.status === 402) {
-      throw new Error("Payment verification failed. Please complete your purchase.");
+    let errorMessage = "Generation Failed";
+    try {
+      const err = await response.json();
+      errorMessage = err.error || errorMessage;
+    } catch (e) {
+      // Handle cases where response is not JSON
     }
-    throw new Error(err.error || "Generation Failed");
+
+    if (response.status === 402) {
+      // Standardize the error string for the frontend catch block
+      throw new Error("Payment required: Please complete your purchase to continue.");
+    }
+    
+    throw new Error(errorMessage);
   }
 
   return await response.json();

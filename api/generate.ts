@@ -11,8 +11,6 @@ export default async function handler(req: Request) {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
-  // Check for KV environment variables
-  // If the user only has REDIS_URL, they created the wrong database type in Vercel.
   const hasKV = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
   const hasOnlyRedis = process.env.REDIS_URL && !hasKV;
 
@@ -34,19 +32,27 @@ export default async function handler(req: Request) {
       return new Response(JSON.stringify({ error: 'Missing required data' }), { status: 400 });
     }
 
-    // 1. Security Check: Verify payment status in Vercel KV
-    const paidData = await kv.get(`paid_${identifier}`);
+    // 1. Quota Check: Verify payment and credits in Vercel KV
+    let paidData: any = await kv.get(`paid_${identifier}`);
+    
     if (!paidData) {
-      return new Response(JSON.stringify({ error: 'Payment required' }), { 
+      return new Response(JSON.stringify({ error: 'Payment required. Please complete your purchase.' }), { 
         status: 402,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // 2. Secret Key: Pulled from Vercel Environment Variables
+    if (paidData.credits <= 0) {
+      return new Response(JSON.stringify({ error: 'No credits remaining. Please purchase a new pack.' }), { 
+        status: 402,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 2. Secret Key
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Gemini API_KEY is not configured in Vercel environment variables.' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'Gemini API_KEY is not configured.' }), { status: 500 });
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -101,7 +107,15 @@ export default async function handler(req: Request) {
       }
     });
 
-    return new Response(response.text, {
+    // 3. Decrement Credits in KV after successful AI generation
+    paidData.credits -= 1;
+    await kv.set(`paid_${identifier}`, paidData);
+
+    // 4. Return result with remaining credits
+    const finalResult = JSON.parse(response.text);
+    finalResult.remainingCredits = paidData.credits;
+
+    return new Response(JSON.stringify(finalResult), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });

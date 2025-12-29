@@ -1,3 +1,4 @@
+
 export enum JobRole {
   IT = 'IT / Software Engineer',
   SALES = 'Sales & Marketing',
@@ -61,6 +62,8 @@ export interface DocumentResult {
   keywordMapping?: string[];
   atsExplanation?: string;
   recruiterInsights?: string;
+  // Quota Management
+  remainingCredits?: number;
 }
 
 export enum PackageType {
