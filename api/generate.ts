@@ -11,6 +11,22 @@ export default async function handler(req: Request) {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
+  // Check for KV environment variables
+  // If the user only has REDIS_URL, they created the wrong database type in Vercel.
+  const hasKV = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
+  const hasOnlyRedis = process.env.REDIS_URL && !hasKV;
+
+  if (!hasKV) {
+    const errorMsg = hasOnlyRedis 
+      ? 'Error: You linked a "Redis" database instead of a "KV" database. Please go to Vercel Storage, create a "KV" database, and connect it to this project.'
+      : 'Error: Vercel KV is not configured. Please go to the Storage tab in Vercel and create/link a KV database.';
+    
+    return new Response(JSON.stringify({ error: errorMsg }), { 
+      status: 500, 
+      headers: { 'Content-Type': 'application/json' } 
+    });
+  }
+
   try {
     const { userData, feedback, identifier } = await req.json();
 
@@ -19,7 +35,6 @@ export default async function handler(req: Request) {
     }
 
     // 1. Security Check: Verify payment status in Vercel KV
-    // This ensures that even if the client-side UI is bypassed, the AI will not generate content.
     const paidData = await kv.get(`paid_${identifier}`);
     if (!paidData) {
       return new Response(JSON.stringify({ error: 'Payment required' }), { 
@@ -28,16 +43,14 @@ export default async function handler(req: Request) {
       });
     }
 
-    // 2. Secret Key: Pulled from Vercel Environment Variables (never sent to client)
+    // 2. Secret Key: Pulled from Vercel Environment Variables
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      console.error("API_KEY is not configured in Vercel environment variables.");
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'Gemini API_KEY is not configured in Vercel environment variables.' }), { status: 500 });
     }
 
     const ai = new GoogleGenAI({ apiKey });
     
-    // 3. Structured Prompt: Reduces risk of prompt injection
     const systemInstruction = `You are an expert Indian Recruiter and Resume Writer. 
     Your task is to convert raw user data into high-impact, professional, ATS-friendly job application documents.
     Always use Indian English and industry-standard terminology for the Indian market (e.g., Lakhs, CGPA, etc.).`;
