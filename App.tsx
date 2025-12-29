@@ -178,6 +178,46 @@ const Builder = () => {
     localStorage.setItem(CREDITS_KEY, JSON.stringify(creditsMap));
   }, [creditsMap]);
 
+  const onFormSubmit = async (data: UserData) => {
+    const id = getIdentifier(data.email, data.phone);
+    setUserData(data);
+    setIsGenerating(true);
+    setResult(null);
+
+    try {
+      const generated = await generateJobDocuments(data, id);
+      setResult(generated);
+      
+      // Update state from server response (Syncs Paid status and Credits)
+      setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
+      if (generated.remainingCredits !== undefined) {
+        setCreditsMap(prev => ({
+          ...prev,
+          [id]: generated.remainingCredits!
+        }));
+      }
+      
+      window.scrollTo(0, 0);
+    } catch (e: any) {
+      // Stringify error if it's an object to ensure keyword matching works on JSON strings too
+      const errorMsg = typeof e === 'string' ? e : (e.message || JSON.stringify(e));
+      const lowerError = errorMsg.toLowerCase();
+      
+      // Broadened matching for payment related triggers
+      if (lowerError.includes('payment required') || 
+          lowerError.includes('complete your purchase') || 
+          lowerError.includes('verification failed') ||
+          lowerError.includes('"payment required"') ||
+          lowerError.includes('purchase required')) {
+        setIsCheckout(true);
+      } else {
+        alert(errorMsg);
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleRazorpayCheckout = () => {
     if (!userData || !selectedPackage) return;
     
@@ -224,50 +264,13 @@ const Builder = () => {
 
   const handlePaymentSuccess = () => {
     if (userData) {
-      setPaidIdentifiers(prev => [...prev, currentId]);
-      setCreditsMap(prev => ({ ...prev, [currentId]: 3 }));
-      setIsCheckout(false);
-      window.scrollTo(0, 0);
-    }
-  };
-
-  const onFormSubmit = async (data: UserData) => {
-    const id = getIdentifier(data.email, data.phone);
-    setUserData(data);
-    setIsGenerating(true);
-    setResult(null);
-
-    try {
-      const generated = await generateJobDocuments(data, id);
-      setResult(generated);
-      
-      // Update state from server response (Syncs Paid status and Credits)
+      const id = getIdentifier(userData.email, userData.phone);
       setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
-      if (generated.remainingCredits !== undefined) {
-        setCreditsMap(prev => ({
-          ...prev,
-          [id]: generated.remainingCredits!
-        }));
-      }
-      
+      setCreditsMap(prev => ({ ...prev, [id]: 3 }));
+      setIsCheckout(false);
+      // Restart the generation process automatically
+      onFormSubmit(userData);
       window.scrollTo(0, 0);
-    } catch (e: any) {
-      // Stringify error if it's an object to ensure keyword matching works on JSON strings too
-      const errorMsg = typeof e === 'string' ? e : (e.message || JSON.stringify(e));
-      const lowerError = errorMsg.toLowerCase();
-      
-      // Broadened matching for payment related triggers
-      if (lowerError.includes('payment required') || 
-          lowerError.includes('complete your purchase') || 
-          lowerError.includes('verification failed') ||
-          lowerError.includes('"payment required"') ||
-          lowerError.includes('purchase required')) {
-        setIsCheckout(true);
-      } else {
-        alert(errorMsg);
-      }
-    } finally {
-      setIsGenerating(false);
     }
   };
 
