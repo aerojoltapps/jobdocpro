@@ -253,10 +253,11 @@ const Builder = () => {
       window.scrollTo(0, 0);
     } catch (e: any) {
       const errorMsg = e.message || "";
-      // Handle "Payment Required" or user's specific "Verification Failed" alert string
-      if (errorMsg.includes('Payment required') || 
-          errorMsg.includes('verification failed') || 
-          errorMsg.includes('complete your purchase')) {
+      // Standardize check for all payment related triggers including the user's reported alert string
+      const lowerError = errorMsg.toLowerCase();
+      if (lowerError.includes('payment required') || 
+          lowerError.includes('verification failed') || 
+          lowerError.includes('complete your purchase')) {
         setIsCheckout(true);
       } else {
         alert(errorMsg);

@@ -112,7 +112,12 @@ export default async function handler(req: Request) {
     await kv.set(`paid_${identifier}`, paidData);
 
     // 4. Return result with remaining credits
-    const finalResult = JSON.parse(response.text);
+    const responseText = response.text;
+    if (!responseText) {
+      throw new Error("AI generation yielded empty result.");
+    }
+    
+    const finalResult = JSON.parse(responseText);
     finalResult.remainingCredits = paidData.credits;
 
     return new Response(JSON.stringify(finalResult), {
@@ -122,7 +127,7 @@ export default async function handler(req: Request) {
 
   } catch (error: any) {
     console.error("API Error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { 
+    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     });
