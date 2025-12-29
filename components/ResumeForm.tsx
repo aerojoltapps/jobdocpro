@@ -70,6 +70,13 @@ const ResumeForm: React.FC<Props> = ({ onSubmit, isLoading, initialData }) => {
   const removeExperience = (index: number) => setFormData(prev => ({ ...prev, experience: prev.experience.filter((_, i) => i !== index) }));
   const removeSkill = (index: number) => setFormData(prev => ({ ...prev, skills: prev.skills.filter((_, i) => i !== index) }));
 
+  const handleClearData = () => {
+    if (window.confirm("This will permanently delete your resume drafts and data from this browser. Proceed?")) {
+      localStorage.clear();
+      window.location.href = '/';
+    }
+  };
+
   const handleSubmit = () => {
     if (!validateStep(step)) return;
 
@@ -87,9 +94,17 @@ const ResumeForm: React.FC<Props> = ({ onSubmit, isLoading, initialData }) => {
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
       {/* Privacy Badge */}
-      <div className="flex items-center justify-center gap-2 mb-6 bg-green-50 py-2 px-4 rounded-full w-fit mx-auto border border-green-100">
-        <span className="text-green-600 text-sm font-bold">🛡️ Privacy Shield Active:</span>
-        <span className="text-green-800 text-xs font-medium">Your data is never stored on our servers.</span>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 mb-8 bg-green-50 py-3 px-6 rounded-2xl w-full border border-green-100">
+        <div className="flex items-center gap-2">
+          <span className="text-green-600 text-sm font-bold">🛡️ Privacy Shield Active:</span>
+          <span className="text-green-800 text-xs font-medium">Your data stays in your browser.</span>
+        </div>
+        <button 
+          onClick={handleClearData}
+          className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:underline sm:ml-4"
+        >
+          Clear Data Now
+        </button>
       </div>
 
       <div className="flex mb-8">

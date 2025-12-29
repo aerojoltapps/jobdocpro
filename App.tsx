@@ -141,27 +141,24 @@ const Builder = () => {
       if (initialRole) parsed.jobRole = initialRole as JobRole;
       return parsed;
     }
-    
-    return initialRole ? {
-      fullName: '', email: '', phone: '', location: '',
-      jobRole: initialRole as JobRole,
-      education: [{ degree: '', college: '', year: '', percentage: '' }],
-      experience: [{ title: '', company: '', duration: '', description: '' }],
-      skills: [''],
-    } : null;
+    return null;
   });
 
   const [result, setResult] = useState<DocumentResult | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCheckout, setIsCheckout] = useState(false);
 
+  // Storage Keys
+  const ID_KEY = btoa('jdp_v1_paid_ids');
+  const CREDITS_KEY = btoa('jdp_v1_credits_log');
+
   const getIdentifier = (email: string, phone: string) => `${email.toLowerCase().trim()}_${phone.trim()}`;
   
   const [paidIdentifiers, setPaidIdentifiers] = useState<string[]>(() => 
-    JSON.parse(localStorage.getItem('jdp_paid_list') || '[]')
+    JSON.parse(localStorage.getItem(ID_KEY) || '[]')
   );
   const [creditsMap, setCreditsMap] = useState<Record<string, number>>(() => 
-    JSON.parse(localStorage.getItem('jdp_credits_map') || '{}')
+    JSON.parse(localStorage.getItem(CREDITS_KEY) || '{}')
   );
 
   const currentId = userData ? getIdentifier(userData.email, userData.phone) : '';
@@ -173,11 +170,11 @@ const Builder = () => {
   }, [userData]);
 
   useEffect(() => {
-    localStorage.setItem('jdp_paid_list', JSON.stringify(paidIdentifiers));
+    localStorage.setItem(ID_KEY, JSON.stringify(paidIdentifiers));
   }, [paidIdentifiers]);
 
   useEffect(() => {
-    localStorage.setItem('jdp_credits_map', JSON.stringify(creditsMap));
+    localStorage.setItem(CREDITS_KEY, JSON.stringify(creditsMap));
   }, [creditsMap]);
 
   const handleRazorpayCheckout = () => {
@@ -189,23 +186,27 @@ const Builder = () => {
       return;
     }
 
-    if (RAZORPAY_KEY_ID === 'rzp_test_fallback_key') {
-      console.error("Razorpay Key ID missing from environment variables.");
-      alert("Checkout system is under maintenance. Please try again later.");
-      return;
-    }
-
-    const amount = PRICING[selectedPackage].price;
     const options = {
       key: RAZORPAY_KEY_ID,
-      amount: amount * 100, // in paise
+      amount: PRICING[selectedPackage].price * 100,
       currency: "INR",
       name: "JobDocPro",
       description: `Unlock Full Documents - ${PRICING[selectedPackage].label}`,
-      image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=100&h=100&fit=crop",
-      handler: function(response: any) {
+      handler: async function(response: any) {
         if (response.razorpay_payment_id) {
-          handlePaymentSuccess();
+          // SECURE: Sync payment success with Vercel KV
+          const sync = await fetch('/api/verify', {
+            method: 'POST',
+            body: JSON.stringify({
+              identifier: currentId,
+              paymentId: response.razorpay_payment_id,
+              packageType: selectedPackage
+            })
+          });
+          
+          if (sync.ok) {
+            handlePaymentSuccess();
+          }
         }
       },
       prefill: {
@@ -213,30 +214,17 @@ const Builder = () => {
         email: userData.email,
         contact: userData.phone
       },
-      theme: {
-        color: "#2563eb"
-      },
-      modal: {
-        ondismiss: function() {
-          console.log("Checkout modal closed by user");
-        }
-      }
+      theme: { color: "#2563eb" }
     };
 
-    try {
-      const instance = new rzp(options);
-      instance.open();
-    } catch (err) {
-      console.error("Razorpay instance error:", err);
-      alert("Failed to open checkout. Please ensure you have a stable connection.");
-    }
+    const instance = new rzp(options);
+    instance.open();
   };
 
   const handlePaymentSuccess = () => {
     if (userData) {
-      const id = getIdentifier(userData.email, userData.phone);
-      setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
-      setCreditsMap(prev => ({ ...prev, [id]: 3 }));
+      setPaidIdentifiers(prev => [...prev, currentId]);
+      setCreditsMap(prev => ({ ...prev, [currentId]: 3 }));
       setIsCheckout(false);
       window.scrollTo(0, 0);
     }
@@ -244,33 +232,27 @@ const Builder = () => {
 
   const onFormSubmit = async (data: UserData) => {
     const id = getIdentifier(data.email, data.phone);
-    const userIsPaid = paidIdentifiers.includes(id);
-    const userCredits = creditsMap[id] !== undefined ? creditsMap[id] : 0;
-
-    if (userIsPaid && userCredits <= 0) {
-      alert("You have used all 3 generations. Please purchase another pack to continue editing.");
-      setIsCheckout(true);
-      return;
-    }
-
     setUserData(data);
     setIsGenerating(true);
     setResult(null);
 
     try {
-      const generated = await generateJobDocuments(data);
+      const generated = await generateJobDocuments(data, id);
       setResult(generated);
       
-      if (userIsPaid) {
+      if (paidIdentifiers.includes(id)) {
         setCreditsMap(prev => ({
           ...prev,
           [id]: Math.max(0, (prev[id] || 3) - 1)
         }));
       }
-      
       window.scrollTo(0, 0);
     } catch (e: any) {
-      alert(e.message || "Generation failed. Please try again.");
+      if (e.message.includes('Payment required')) {
+        setIsCheckout(true);
+      } else {
+        alert(e.message);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -278,22 +260,25 @@ const Builder = () => {
 
   const handleRefine = async (feedback: string) => {
     if (!userData || remainingCredits <= 0) return;
-    
     setIsGenerating(true);
-    const id = getIdentifier(userData.email, userData.phone);
-
     try {
-      const refined = await generateJobDocuments(userData, feedback);
+      const refined = await generateJobDocuments(userData, currentId, feedback);
       setResult(refined);
-      
       setCreditsMap(prev => ({
         ...prev,
-        [id]: Math.max(0, (prev[id] || 3) - 1)
+        [currentId]: Math.max(0, (prev[currentId] || 3) - 1)
       }));
     } catch (e: any) {
-      alert("Refinement failed: " + e.message);
+      alert(e.message);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleGlobalClear = () => {
+    if (window.confirm("CRITICAL: This will permanently delete your resume drafts, payment history, and credits from this browser. This action cannot be undone. Proceed?")) {
+      localStorage.clear();
+      window.location.href = '/';
     }
   };
 
@@ -316,10 +301,10 @@ const Builder = () => {
   if (isGenerating) {
     return (
       <Layout>
-        <div className="max-w-2xl mx-auto py-32 text-center animate-fadeIn">
+        <div className="max-w-2xl mx-auto py-32 text-center">
            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
-           <h2 className="text-3xl font-black mb-4 tracking-tight">AI at Work...</h2>
-           <p className="text-gray-500 font-medium">Refining your documents to perfection. 15-20 seconds remaining.</p>
+           <h2 className="text-3xl font-black mb-4 tracking-tight">Securing Documents...</h2>
+           <p className="text-gray-500 font-medium italic">Calling server-side AI. Your details remain private.</p>
         </div>
       </Layout>
     );
@@ -330,36 +315,14 @@ const Builder = () => {
       <Layout>
         <div className="max-w-5xl mx-auto py-10 px-4">
           <div className="flex justify-between items-center mb-10 no-print">
-            <button 
-              onClick={() => {
-                if (remainingCredits <= 0) {
-                  alert("You have used all 3 generations. Purchase a new pack to edit details.");
-                } else {
-                  setResult(null);
-                }
-              }} 
-              className="text-blue-600 font-bold hover:underline flex items-center gap-2"
-            >
-               <span>←</span> Edit Details
-            </button>
+            <button onClick={() => setResult(null)} className="text-blue-600 font-bold hover:underline">← Edit Details</button>
             <div className="flex flex-col items-end">
               {isPaid ? (
-                <div className="flex flex-col items-end">
-                   <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                      Pro Access Active
-                   </div>
-                   <span className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-tighter">
-                     Credits Remaining: {remainingCredits} / 3
-                   </span>
-                </div>
+                 <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-green-100">
+                    Pro Access Active
+                 </div>
               ) : (
-                <button 
-                  onClick={() => setIsCheckout(true)}
-                  className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-                >
-                  🚀 Unlock Full Documents
-                </button>
+                <button onClick={() => setIsCheckout(true)} className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black hover:bg-blue-700">🚀 Unlock Now</button>
               )}
             </div>
           </div>
@@ -376,22 +339,14 @@ const Builder = () => {
 
         {isCheckout && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
-            <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center" onClick={e => e.stopPropagation()}>
+            <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-blue-100 max-w-xl w-full text-center">
               <h2 className="text-4xl font-black mb-4 tracking-tight">Ready to Apply?</h2>
-              <p className="text-gray-500 mb-8 font-medium leading-relaxed">Unlock the full PDF, recruiter insights, and AI refinement tools. <strong>Includes 3 generations.</strong></p>
               <div className="bg-blue-600 p-10 rounded-3xl mb-10 text-white shadow-xl">
                  <div className="text-7xl font-black tracking-tighter">₹{PRICING[selectedPackage].price}</div>
                  <div className="mt-2 text-sm text-blue-100 font-bold uppercase tracking-widest opacity-80">One-Time Payment</div>
               </div>
-              <div className="space-y-4">
-                <button 
-                  onClick={handleRazorpayCheckout}
-                  className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105 shadow-xl shadow-blue-200"
-                >
-                  Unlock Instantly
-                </button>
-                <button onClick={() => setIsCheckout(false)} className="block w-full text-gray-400 font-bold uppercase text-[10px] hover:text-blue-600">Maybe Later</button>
-              </div>
+              <button onClick={handleRazorpayCheckout} className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-xl hover:bg-blue-700 transition transform hover:scale-105">Unlock Instantly</button>
+              <button onClick={() => setIsCheckout(false)} className="mt-4 block w-full text-gray-400 font-bold text-xs uppercase">Maybe Later</button>
             </div>
           </div>
         )}
@@ -402,15 +357,18 @@ const Builder = () => {
   return (
     <Layout>
       <div className="max-w-4xl mx-auto py-16 px-4">
-        <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold mb-8 hover:underline flex items-center gap-1">
-          <span>←</span> Change Package
-        </button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-12 gap-4">
+          <button onClick={() => setSelectedPackage(null)} className="text-blue-600 font-bold hover:underline">← Change Package</button>
+          <button 
+            onClick={handleGlobalClear} 
+            className="text-[10px] font-black uppercase tracking-widest text-red-500 border border-red-100 bg-red-50 px-4 py-2 rounded-xl hover:bg-red-600 hover:text-white transition shadow-sm"
+          >
+            Clear All My Data
+          </button>
+        </div>
         <div className="text-center mb-16">
-          <span className="inline-block bg-blue-50 text-blue-700 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest mb-4">
-            Building: {PRICING[selectedPackage].label}
-          </span>
           <h1 className="text-4xl font-black tracking-tight">Career Details</h1>
-          <p className="text-gray-500 mt-2 font-medium">Tell us about your background to generate your documents.</p>
+          <p className="text-gray-500 mt-2 font-medium">Your data is processed on our secure Vercel server.</p>
         </div>
         <ResumeForm onSubmit={onFormSubmit} isLoading={isGenerating} initialData={userData} />
       </div>
@@ -422,7 +380,6 @@ const Pricing = () => (
   <Layout>
     <div className="max-w-7xl mx-auto py-24 px-4 text-center">
       <h1 className="text-5xl font-black mb-6 tracking-tight text-gray-900">Simple, One-Time Pricing</h1>
-      <p className="text-gray-500 text-xl mb-20 max-w-2xl mx-auto">Pay once, use 3 times. No subscriptions or hidden fees.</p>
       <div className="grid md:grid-cols-3 gap-8">
         {Object.entries(PRICING).map(([key, val]) => (
           <PackageCard key={key} pkgKey={key} data={val} />
@@ -435,16 +392,15 @@ const Pricing = () => (
 const FAQ = () => (
   <Layout>
     <div className="max-w-3xl mx-auto py-24 px-4">
-      <h1 className="text-5xl font-black text-center mb-16 tracking-tight">Common Questions</h1>
+      <h1 className="text-5xl font-black text-center mb-16">Common Questions</h1>
       <div className="space-y-6">
         {[
           { q: "Is this ATS friendly?", a: "Yes. Our formats are specifically designed for the software used by Indian firms like TCS, Infosys, and startups." },
-          { q: "What is the '3 Generations' quota?", a: "Every purchase gives you 3 generation attempts. This includes refining your content with AI or changing your details." },
-          { q: "How do I download the PDF?", a: "Once you unlock, a 'Download All' button appears. Use your browser's print dialog to 'Save as PDF'." }
+          { q: "Is my data secure?", a: "We use server-side AI processing via Vercel. Your API keys are never exposed and your data is processed privately." }
         ].map((item, i) => (
-          <div key={i} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:border-blue-100 transition">
-            <h3 className="text-xl font-black mb-2 leading-tight text-gray-900">{item.q}</h3>
-            <p className="text-gray-600 font-medium leading-relaxed">{item.a}</p>
+          <div key={i} className="bg-white p-8 rounded-2xl border border-gray-100">
+            <h3 className="text-xl font-black mb-2">{item.q}</h3>
+            <p className="text-gray-600 font-medium">{item.a}</p>
           </div>
         ))}
       </div>

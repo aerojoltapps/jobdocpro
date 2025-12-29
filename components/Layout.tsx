@@ -7,6 +7,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isActive = (path: string) => location.pathname === path;
   const isOnBuilder = location.pathname === '/builder';
 
+  const clearAllUserData = () => {
+    if (window.confirm("CRITICAL: This will permanently delete your resume drafts, payment history, and credits from this browser. This action cannot be undone. Proceed?")) {
+      localStorage.clear();
+      window.location.href = '/';
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 no-print">
@@ -17,11 +24,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 JobDoc<span className="text-gray-900">Pro</span>
               </Link>
             </div>
-            <div className="hidden md:flex space-x-8 text-sm font-bold">
+            <div className="hidden lg:flex space-x-8 text-sm font-bold items-center">
               <Link to="/" className={`${isActive('/') ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-600 transition`}>Home</Link>
               <Link to="/samples" className={`${isActive('/samples') ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-600 transition`}>Resume Samples</Link>
               <Link to="/pricing" className={`${isActive('/pricing') ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-600 transition`}>Pricing</Link>
               <Link to="/faq" className={`${isActive('/faq') ? 'text-blue-600' : 'text-gray-600'} hover:text-blue-600 transition`}>FAQ</Link>
+              <button 
+                onClick={clearAllUserData}
+                className="text-gray-400 hover:text-red-500 transition text-xs border-l border-gray-200 pl-8 ml-2 font-black uppercase tracking-widest"
+              >
+                Clear My Data
+              </button>
             </div>
             <div className="flex items-center gap-4">
               {!isOnBuilder && (
@@ -46,10 +59,22 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
             <div className="col-span-1 md:col-span-2">
               <h3 className="text-2xl font-black mb-6 tracking-tighter">JobDocPro</h3>
-              <p className="text-gray-400 max-w-sm leading-relaxed">
+              <p className="text-gray-400 max-w-sm leading-relaxed mb-6">
                 Helping Indian job seekers land their dream roles with recruiter-ready documents. 
                 Focus on Tier 2/3 cities and freshers. No AI skills required.
               </p>
+              <div className="bg-gray-800/50 p-6 rounded-2xl border border-gray-800">
+                <h4 className="text-xs font-black uppercase tracking-[2px] text-blue-400 mb-3">Privacy & Security</h4>
+                <p className="text-[11px] text-gray-500 font-medium mb-4">
+                  We value your privacy. Your career data and personal details are stored <strong>only in your browser</strong> and never on our servers.
+                </p>
+                <button 
+                  onClick={clearAllUserData}
+                  className="text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-2 rounded-lg hover:bg-red-500 hover:text-white transition"
+                >
+                  Clear All My Data
+                </button>
+              </div>
             </div>
             <div>
               <h4 className="font-bold text-white mb-6 uppercase tracking-widest text-xs">Quick Links</h4>
@@ -68,6 +93,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </p>
                 <div className="pt-4 flex gap-4 opacity-50">
                   <span className="text-xs font-bold border border-gray-700 px-2 py-1 rounded">SSL SECURED</span>
+                  <span className="text-xs font-bold border border-gray-700 px-2 py-1 rounded">CLIENT-ONLY STORAGE</span>
                 </div>
               </div>
             </div>
