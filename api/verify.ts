@@ -1,51 +1,84 @@
-
 import { kv } from "@vercel/kv";
 
 export const config = {
   runtime: 'edge',
 };
 
+async function hashIdentifier(id: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(id.toLowerCase().trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyRazorpaySignature(orderId: string, paymentId: string, signature: string, secret: string): Promise<boolean> {
+  const text = orderId + "|" + paymentId;
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signatureData = encoder.encode(text);
+  const hmac = await crypto.subtle.sign("HMAC", key, signatureData);
+  const digest = Array.from(new Uint8Array(hmac))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+  return digest === signature;
+}
+
 export default async function handler(req: Request) {
+  const securityHeaders = {
+    'Content-Type': 'application/json',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY'
+  };
+
   if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
 
-  // Check for KV environment variables
-  const hasKV = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
-  const hasOnlyRedis = process.env.REDIS_URL && !hasKV;
-
-  if (!hasKV) {
-    const errorMsg = hasOnlyRedis 
-      ? 'Error: You linked a "Redis" database instead of a "KV" database. Please go to Vercel Storage, create a "KV" database, and connect it to this project.'
-      : 'Error: Vercel KV is not configured. Please go to the Storage tab in Vercel and create/link a KV database.';
-    
-    return new Response(JSON.stringify({ error: errorMsg }), { 
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keySecret) {
+    return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
       status: 500, 
-      headers: { 'Content-Type': 'application/json' } 
+      headers: securityHeaders 
     });
   }
 
   try {
-    const { identifier, paymentId, packageType } = await req.json();
+    const { identifier, paymentId, orderId, signature, packageType } = await req.json();
     
-    if (!identifier || !paymentId) {
-      return new Response(JSON.stringify({ error: 'Invalid payment data' }), { status: 400 });
+    if (!identifier || !paymentId || !orderId || !signature) {
+      return new Response(JSON.stringify({ error: 'Incomplete verification data' }), { 
+        status: 400, 
+        headers: securityHeaders 
+      });
     }
 
-    // Store the payment record in Vercel KV
-    await kv.set(`paid_${identifier}`, {
-      paymentId,
-      packageType,
+    const isValid = await verifyRazorpaySignature(orderId, paymentId, signature, keySecret);
+    if (!isValid) {
+      return new Response(JSON.stringify({ error: 'Security verification failed' }), { 
+        status: 403, 
+        headers: securityHeaders 
+      });
+    }
+
+    const secureId = await hashIdentifier(identifier);
+    await kv.set(`paid_v2_${secureId}`, {
       verifiedAt: new Date().toISOString(),
       credits: 3 
     });
 
     return new Response(JSON.stringify({ success: true }), { 
       status: 200, 
-      headers: { 'Content-Type': 'application/json' } 
+      headers: securityHeaders
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: "Failed to verify payment" }), { 
+    return new Response(JSON.stringify({ error: "Verification failed" }), { 
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: securityHeaders
     });
   }
 }

@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { kv } from "@vercel/kv";
 
@@ -6,60 +5,83 @@ export const config = {
   runtime: 'edge',
 };
 
+const MAX_FIELD_LENGTH = 1000;
+const MAX_ARRAY_SIZE = 10;
+
+async function hashIdentifier(id: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(id.toLowerCase().trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default async function handler(req: Request) {
+  const securityHeaders = {
+    'Content-Type': 'application/json',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+  };
+
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
   const hasKV = process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN;
-  const hasOnlyRedis = process.env.REDIS_URL && !hasKV;
-
   if (!hasKV) {
-    const errorMsg = hasOnlyRedis 
-      ? 'Error: You linked a "Redis" database instead of a "KV" database. Please go to Vercel Storage, create a "KV" database, and connect it to this project.'
-      : 'Error: Vercel KV is not configured. Please go to the Storage tab in Vercel and create/link a KV database.';
-    
-    return new Response(JSON.stringify({ error: errorMsg }), { 
+    return new Response(JSON.stringify({ error: 'Storage configuration missing.' }), { 
       status: 500, 
-      headers: { 'Content-Type': 'application/json' } 
+      headers: securityHeaders
     });
   }
 
   try {
     const { userData, feedback, identifier } = await req.json();
 
-    if (!identifier || !userData) {
-      return new Response(JSON.stringify({ error: 'Missing required data' }), { status: 400 });
+    if (!identifier || !userData || !userData.email || !userData.phone) {
+      return new Response(JSON.stringify({ error: 'Invalid request parameters' }), { 
+        status: 400, 
+        headers: securityHeaders 
+      });
     }
 
-    // 1. Quota Check: Verify payment and credits in Vercel KV
-    let paidData: any = await kv.get(`paid_${identifier}`);
+    if (userData.fullName.length > 200 || 
+        (feedback && feedback.length > 500) ||
+        userData.experience.length > MAX_ARRAY_SIZE ||
+        userData.education.length > MAX_ARRAY_SIZE) {
+      return new Response(JSON.stringify({ error: 'Payload size limit exceeded' }), { 
+        status: 400, 
+        headers: securityHeaders 
+      });
+    }
+
+    const secureId = await hashIdentifier(identifier);
+    let paidData: any = await kv.get(`paid_v2_${secureId}`);
     
     if (!paidData) {
-      return new Response(JSON.stringify({ error: 'Payment required. Please complete your purchase.' }), { 
+      return new Response(JSON.stringify({ error: 'Payment required: Please complete your purchase.' }), { 
         status: 402,
-        headers: { 'Content-Type': 'application/json' }
+        headers: securityHeaders
       });
     }
 
     if (paidData.credits <= 0) {
-      return new Response(JSON.stringify({ error: 'No credits remaining. Please purchase a new pack.' }), { 
+      return new Response(JSON.stringify({ error: 'No credits remaining.' }), { 
         status: 402,
-        headers: { 'Content-Type': 'application/json' }
+        headers: securityHeaders
       });
     }
 
-    // 2. Secret Key
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Gemini API_KEY is not configured.' }), { status: 500 });
+      return new Response(JSON.stringify({ error: 'Service configuration error' }), { 
+        status: 500, 
+        headers: securityHeaders 
+      });
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    
-    const systemInstruction = `You are an expert Indian Recruiter and Resume Writer. 
-    Your task is to convert raw user data into high-impact, professional, ATS-friendly job application documents.
-    Always use Indian English and industry-standard terminology for the Indian market (e.g., Lakhs, CGPA, etc.).`;
+    const systemInstruction = `You are an expert Indian Recruiter. Generate high-impact, professional documents using Indian English. Ensure JSON format output.`;
 
     const userPrompt = `
       CONTEXT:
@@ -67,17 +89,9 @@ export default async function handler(req: Request) {
       Target Role: ${userData.jobRole}
       Location: ${userData.location}
       Skills: ${userData.skills.join(', ')}
-      
-      EDUCATION:
-      ${JSON.stringify(userData.education)}
-      
-      EXPERIENCE:
-      ${JSON.stringify(userData.experience)}
-      
-      ${feedback ? `MODIFICATION REQUEST: ${feedback}` : ""}
-      
-      INSTRUCTION: Generate the Resume Summary, Experience Bullets, Cover Letter, and LinkedIn profile sections.
-      Return strictly JSON.
+      EDUCATION: ${JSON.stringify(userData.education)}
+      EXPERIENCE: ${JSON.stringify(userData.experience)}
+      ${feedback ? `MODIFICATION: ${feedback}` : ""}
     `;
 
     const response = await ai.models.generateContent({
@@ -90,11 +104,7 @@ export default async function handler(req: Request) {
           type: Type.OBJECT,
           properties: {
             resumeSummary: { type: Type.STRING },
-            experienceBullets: { 
-              type: Type.ARRAY, 
-              items: { type: Type.ARRAY, items: { type: Type.STRING } },
-              description: "A 2D array where each sub-array contains 3-4 bullet points for each work experience entry."
-            },
+            experienceBullets: { type: Type.ARRAY, items: { type: Type.ARRAY, items: { type: Type.STRING } } },
             coverLetter: { type: Type.STRING },
             linkedinSummary: { type: Type.STRING },
             linkedinHeadline: { type: Type.STRING },
@@ -107,29 +117,20 @@ export default async function handler(req: Request) {
       }
     });
 
-    // 3. Decrement Credits in KV after successful AI generation
+    const finalResult = JSON.parse(response.text || '{}');
     paidData.credits -= 1;
-    await kv.set(`paid_${identifier}`, paidData);
-
-    // 4. Return result with remaining credits
-    const responseText = response.text;
-    if (!responseText) {
-      throw new Error("AI generation yielded empty result.");
-    }
-    
-    const finalResult = JSON.parse(responseText);
+    await kv.set(`paid_v2_${secureId}`, paidData);
     finalResult.remainingCredits = paidData.credits;
 
     return new Response(JSON.stringify(finalResult), {
       status: 200,
-      headers: { 'Content-Type': 'application/json' }
+      headers: securityHeaders
     });
 
   } catch (error: any) {
-    console.error("API Error:", error);
-    return new Response(JSON.stringify({ error: error.message || "Internal server error" }), { 
+    return new Response(JSON.stringify({ error: "Processing failed" }), { 
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: securityHeaders
     });
   }
 }
