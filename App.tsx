@@ -1,3 +1,4 @@
+
 import { UserData, DocumentResult, PackageType, JobRole } from './types';
 import { generateJobDocuments } from './services/geminiService';
 import { PRICING, RAZORPAY_KEY_ID } from './constants';
@@ -149,8 +150,8 @@ const Builder = () => {
   const [isCheckout, setIsCheckout] = useState(false);
 
   // Storage Keys
-  const ID_KEY = btoa('jdp_v2_paid_ids');
-  const CREDITS_KEY = btoa('jdp_v2_credits_log');
+  const ID_KEY = btoa('jdp_v1_paid_ids');
+  const CREDITS_KEY = btoa('jdp_v1_credits_log');
 
   const getIdentifier = (email: string, phone: string) => `${email.toLowerCase().trim()}_${phone.trim()}`;
   
@@ -164,9 +165,6 @@ const Builder = () => {
   const currentId = userData ? getIdentifier(userData.email, userData.phone) : '';
   const isPaid = paidIdentifiers.includes(currentId);
   const remainingCredits = creditsMap[currentId] !== undefined ? creditsMap[currentId] : 0;
-
-  // Ref to hold data during async transitions (prevents stale closure issues during payment)
-  const pendingDataRef = useRef<UserData | null>(null);
 
   useEffect(() => {
     if (userData) localStorage.setItem('jdp_draft', JSON.stringify(userData));
@@ -183,18 +181,15 @@ const Builder = () => {
   const onFormSubmit = async (data: UserData) => {
     const id = getIdentifier(data.email, data.phone);
     setUserData(data);
-    pendingDataRef.current = data;
     setIsGenerating(true);
+    setResult(null);
 
     try {
       const generated = await generateJobDocuments(data, id);
       setResult(generated);
       
-      // Update local storage/state from server response
-      if (!paidIdentifiers.includes(id)) {
-        setPaidIdentifiers(prev => [...prev, id]);
-      }
-      
+      // Update state from server response (Syncs Paid status and Credits)
+      setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
       if (generated.remainingCredits !== undefined) {
         setCreditsMap(prev => ({
           ...prev,
@@ -202,11 +197,18 @@ const Builder = () => {
         }));
       }
       
-      setIsCheckout(false);
       window.scrollTo(0, 0);
     } catch (e: any) {
-      const errorMsg = e.message || "Failed";
-      if (errorMsg.includes('Payment Required') || errorMsg.includes('402')) {
+      // Stringify error if it's an object to ensure keyword matching works on JSON strings too
+      const errorMsg = typeof e === 'string' ? e : (e.message || JSON.stringify(e));
+      const lowerError = errorMsg.toLowerCase();
+      
+      // Broadened matching for payment related triggers
+      if (lowerError.includes('payment required') || 
+          lowerError.includes('complete your purchase') || 
+          lowerError.includes('verification failed') ||
+          lowerError.includes('"payment required"') ||
+          lowerError.includes('purchase required')) {
         setIsCheckout(true);
       } else {
         alert(errorMsg);
@@ -216,9 +218,8 @@ const Builder = () => {
     }
   };
 
-  const handleRazorpayCheckout = async () => {
-    const dataToUse = pendingDataRef.current || userData;
-    if (!dataToUse || !selectedPackage) return;
+  const handleRazorpayCheckout = () => {
+    if (!userData || !selectedPackage) return;
     
     const rzp = (window as any).Razorpay;
     if (!rzp) {
@@ -226,62 +227,50 @@ const Builder = () => {
       return;
     }
 
-    try {
-      const orderRes = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageType: selectedPackage })
-      });
-      const order = await orderRes.json();
-      if (!orderRes.ok) throw new Error(order.error);
-
-      const options = {
-        key: RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        order_id: order.id,
-        name: "JobDocPro",
-        description: `Unlock Full Documents - ${PRICING[selectedPackage].label}`,
-        handler: async function(response: any) {
+    const options = {
+      key: RAZORPAY_KEY_ID,
+      amount: PRICING[selectedPackage].price * 100,
+      currency: "INR",
+      name: "JobDocPro",
+      description: `Unlock Full Documents - ${PRICING[selectedPackage].label}`,
+      handler: async function(response: any) {
+        if (response.razorpay_payment_id) {
+          // SECURE: Sync payment success with Vercel KV
           const sync = await fetch('/api/verify', {
             method: 'POST',
             body: JSON.stringify({
-              identifier: getIdentifier(dataToUse.email, dataToUse.phone),
+              identifier: currentId,
               paymentId: response.razorpay_payment_id,
-              orderId: response.razorpay_order_id,
-              signature: response.razorpay_signature,
               packageType: selectedPackage
             })
           });
           
           if (sync.ok) {
-            // CRITICAL: Update local paid status immediately to prevent re-blocking
-            const id = getIdentifier(dataToUse.email, dataToUse.phone);
-            setPaidIdentifiers(prev => [...prev, id]);
-            setCreditsMap(prev => ({ ...prev, [id]: 3 }));
-            
-            // Allow 1.5s for KV propagation across regions
-            setIsCheckout(false);
-            setIsGenerating(true);
-            setTimeout(() => {
-              onFormSubmit(dataToUse);
-            }, 1500);
-          } else {
-            alert("Payment verification failed. Please contact support.");
+            handlePaymentSuccess();
           }
-        },
-        prefill: {
-          name: dataToUse.fullName,
-          email: dataToUse.email,
-          contact: dataToUse.phone
-        },
-        theme: { color: "#2563eb" }
-      };
+        }
+      },
+      prefill: {
+        name: userData.fullName,
+        email: userData.email,
+        contact: userData.phone
+      },
+      theme: { color: "#2563eb" }
+    };
 
-      const instance = new rzp(options);
-      instance.open();
-    } catch (e: any) {
-      alert("Checkout failed: " + e.message);
+    const instance = new rzp(options);
+    instance.open();
+  };
+
+  const handlePaymentSuccess = () => {
+    if (userData) {
+      const id = getIdentifier(userData.email, userData.phone);
+      setPaidIdentifiers(prev => prev.includes(id) ? prev : [...prev, id]);
+      setCreditsMap(prev => ({ ...prev, [id]: 3 }));
+      setIsCheckout(false);
+      // Restart the generation process automatically
+      onFormSubmit(userData);
+      window.scrollTo(0, 0);
     }
   };
 
@@ -291,6 +280,8 @@ const Builder = () => {
     try {
       const refined = await generateJobDocuments(userData, currentId, feedback);
       setResult(refined);
+      
+      // Update credits from server response
       if (refined.remainingCredits !== undefined) {
         setCreditsMap(prev => ({
           ...prev,
@@ -305,7 +296,7 @@ const Builder = () => {
   };
 
   const handleGlobalClear = () => {
-    if (window.confirm("CRITICAL: This will permanently delete your resume drafts, payment history, and credits from this browser. Proceed?")) {
+    if (window.confirm("CRITICAL: This will permanently delete your resume drafts, payment history, and credits from this browser. This action cannot be undone. Proceed?")) {
       localStorage.clear();
       window.location.href = '/';
     }
@@ -327,20 +318,21 @@ const Builder = () => {
     );
   }
 
+  if (isGenerating) {
+    return (
+      <Layout>
+        <div className="max-w-2xl mx-auto py-32 text-center">
+           <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-8"></div>
+           <h2 className="text-3xl font-black mb-4 tracking-tight">Securing Documents...</h2>
+           <p className="text-gray-500 font-medium italic">Calling server-side AI. Your details remain private.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto py-10 px-4 min-h-[60vh]">
-        {/* Loading Overlay: Essential for keeping the Form mounted to prevent Step resets */}
-        {isGenerating && (
-          <div className="fixed inset-0 z-[60] bg-white/90 backdrop-blur-md flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-              <h2 className="text-2xl font-black mb-2">Generating Securely...</h2>
-              <p className="text-gray-500 font-medium italic">Calling server-side AI. Your details remain private.</p>
-            </div>
-          </div>
-        )}
-
+      <div className="max-w-5xl mx-auto py-10 px-4">
         {result && userData ? (
           <>
             <div className="flex justify-between items-center mb-10 no-print">
